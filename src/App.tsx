@@ -30,8 +30,12 @@ import { CategoryModal } from './components/Modals/CategoryModal';
 import { CreditCardModal } from './components/Modals/CreditCardModal';
 import { InstallmentModal } from './components/Modals/InstallmentModal';
 import { ConfirmDeleteModal } from './components/Modals/ConfirmDeleteModal';
+import { LoginScreen } from './components/LoginScreen';
 
 export default function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<string | null>(() => localStorage.getItem('idm_user'));
+
   // Current active navigation tab
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
 
@@ -73,9 +77,88 @@ export default function App() {
     description: string;
   } | null>(null);
 
-  // Initialize and load data on boot
-  const reloadData = () => {
+  // Initialize and load data on boot with Neon PostgreSQL Cloud Sync
+  const syncWithNeon = async (dataToSync?: any) => {
+    try {
+      const payload = dataToSync || {
+        categories: StorageEngine.getCategories(),
+        transactions: StorageEngine.getTransactions(),
+        recurring: StorageEngine.getRecurringExpenses(),
+        creditCards: StorageEngine.getCreditCards(),
+        installmentPlans: StorageEngine.getInstallmentPlans(),
+        monthlyBudgets: StorageEngine.getMonthlyBudgets(),
+        categoryBudgets: StorageEngine.getCategoryBudgets(selectedMonthYear),
+      };
+
+      await fetch('/api/db/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn('Sync to Neon failed:', err);
+    }
+  };
+
+  const reloadData = async () => {
     StorageEngine.init();
+
+    // Try fetching from Neon Cloud first
+    try {
+      const res = await fetch('/api/db/data');
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData.transactions && Array.isArray(cloudData.transactions)) {
+          // If cloud data exists, update memory state
+          const mappedTxs: Transaction[] = cloudData.transactions.map((t: any) => ({
+            id: t.id,
+            type: t.type,
+            date: typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0],
+            description: t.description,
+            categoryId: t.category_id || t.categoryId,
+            amount: Number(t.amount),
+            expenseType: t.expense_type || t.expenseType || 'variable',
+            paymentMethod: t.payment_method || t.paymentMethod || 'outros',
+            creditCardId: t.credit_card_id || t.creditCardId,
+            notes: t.notes,
+            recurrence: t.recurrence || 'none',
+            installmentPlanId: t.installment_plan_id || t.installmentPlanId,
+            currentInstallment: t.current_installment || t.currentInstallment,
+            totalInstallments: t.total_installments || t.totalInstallments,
+            createdAt: t.created_at || t.createdAt,
+            updatedAt: t.updated_at || t.updatedAt,
+          }));
+
+          setTransactions(mappedTxs);
+
+          if (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
+            const mappedCats: Category[] = cloudData.categories.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              type: c.type,
+              group: c.group_name || c.group,
+              isDefault: c.is_default ?? c.isDefault,
+              active: c.active !== false,
+            }));
+            setCategories(mappedCats);
+          } else {
+            setCategories(StorageEngine.getCategories());
+          }
+
+          setRecurringExpenses(StorageEngine.getRecurringExpenses());
+          setRecurringPayments(StorageEngine.getRecurringPayments());
+          setCreditCards(StorageEngine.getCreditCards());
+          setInstallmentPlans(StorageEngine.getInstallmentPlans());
+          setMonthlyBudgets(StorageEngine.getMonthlyBudgets());
+          setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Fetch from Neon database skipped/failed:', err);
+    }
+
+    // Fallback to initial local engine state
     setTransactions(StorageEngine.getTransactions());
     setCategories(StorageEngine.getCategories());
     setRecurringExpenses(StorageEngine.getRecurringExpenses());
@@ -113,6 +196,7 @@ export default function App() {
   ) => {
     StorageEngine.saveTransaction(txData);
     reloadData();
+    syncWithNeon();
   };
 
   const handleDeleteTransaction = (tx: Transaction) => {
@@ -140,6 +224,7 @@ export default function App() {
   ) => {
     StorageEngine.saveRecurringExpense(recData);
     reloadData();
+    syncWithNeon();
   };
 
   const handleDeleteRecurring = (rec: RecurringExpense) => {
@@ -175,6 +260,7 @@ export default function App() {
   const handleSaveCategory = (catData: Omit<Category, 'id'> & { id?: string }) => {
     StorageEngine.saveCategory(catData);
     reloadData();
+    syncWithNeon();
   };
 
   const handleDeleteCategory = (cat: Category) => {
@@ -255,6 +341,7 @@ export default function App() {
 
     setDeleteTarget(null);
     reloadData();
+    syncWithNeon();
   };
 
   // --- SETTINGS HANDLERS ---
@@ -268,8 +355,23 @@ export default function App() {
     reloadData();
   };
 
+  // Handle Login & Logout
+  const handleLogin = (user: string) => {
+    localStorage.setItem('idm_user', user);
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('idm_user');
+    setCurrentUser(null);
+  };
+
   // Find monthly budget for selected month
   const currentMonthlyBudget = monthlyBudgets.find((b) => b.monthYear === selectedMonthYear);
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] flex text-slate-800 antialiased font-sans">
@@ -279,6 +381,8 @@ export default function App() {
         onTabChange={setActiveTab}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -384,6 +488,9 @@ export default function App() {
             <SettingsView
               onResetSampleData={handleResetSampleData}
               onClearAllData={handleClearAllData}
+              currentUser={currentUser}
+              onUpdateUser={handleLogin}
+              onLogout={handleLogout}
             />
           )}
         </main>

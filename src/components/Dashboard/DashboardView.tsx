@@ -281,24 +281,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* HIGHLIGHT RESUMO DO MÊS BANNER */}
-      <div className="bg-linear-to-r from-emerald-950 via-emerald-900 to-emerald-950 text-white rounded-2xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[#385236] via-[#4c6a49] to-[#5f805a] text-white rounded-2xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4 border border-[#71966c]/60">
         <div className="flex items-center gap-3">
-          <div className="p-3 bg-emerald-800/80 rounded-xl text-emerald-300 border border-emerald-700/60">
+          <div className="p-3 bg-[#547551] rounded-xl text-[#d4f2ce] border border-[#7da879]/70 shadow-xs">
             <ShieldCheck className="w-7 h-7" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-emerald-100">Resumo Destaques do Mês</h3>
-            <p className="text-xs text-emerald-300/80 mt-0.5">
+            <h3 className="text-base font-bold text-[#f2faf1]">Resumo Destaques do Mês</h3>
+            <p className="text-xs text-[#d1ebd0] mt-0.5">
               Rápida identificação do maior grupo de despesa e da maior compra individual.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 bg-emerald-900/50 p-3 rounded-xl border border-emerald-800/80">
-          <div className="flex items-center gap-2 border-r border-emerald-800/80 pr-4">
-            <Tag className="w-4 h-4 text-emerald-400" />
+        <div className="flex flex-wrap items-center gap-4 bg-[#2e432d]/80 p-3 rounded-xl border border-[#587a55]">
+          <div className="flex items-center gap-2 border-r border-[#587a55] pr-4">
+            <Tag className="w-4 h-4 text-[#b2e0ad]" />
             <div>
-              <span className="text-[10px] uppercase font-bold text-emerald-300/70 block">Maior Categoria</span>
+              <span className="text-[10px] uppercase font-bold text-[#d1ebd0]/90 block">Maior Categoria</span>
               <span className="text-xs font-bold text-white">
                 {topExpenseCategory.name} ({formatBRL(topExpenseCategory.total)})
               </span>
@@ -306,9 +306,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-emerald-400" />
+            <Receipt className="w-4 h-4 text-[#b2e0ad]" />
             <div>
-              <span className="text-[10px] uppercase font-bold text-emerald-300/70 block">Maior Gasto Individual</span>
+              <span className="text-[10px] uppercase font-bold text-[#d1ebd0]/90 block">Maior Gasto Individual</span>
               <span className="text-xs font-bold text-white">
                 {topIndividualExpense ? `${topIndividualExpense.description} (${formatBRL(topIndividualExpense.amount)})` : 'Nenhum lançamento'}
               </span>

@@ -185,9 +185,9 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onOpenNewRecurring}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-900 hover:bg-emerald-950 text-white rounded-xl text-xs font-semibold shadow-xs transition"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-[#4a6b47] to-[#5d8259] hover:from-[#3d5a3b] hover:to-[#4e704a] text-white rounded-xl text-xs font-semibold shadow-xs transition"
           >
-            <Clock className="w-4 h-4 text-emerald-300" />
+            <Clock className="w-4 h-4 text-[#d2f2cc]" />
             <span className="hidden sm:inline">Despesa Fixa</span>
             <span className="sm:hidden">Fixa</span>
           </button>

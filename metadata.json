@@ -1,5 +1,5 @@
 {
-  "name": "Controle Financeiro Pessoal",
+  "name": "IDMFinance",
   "description": "Aplicativo completo de gestão de finanças pessoais com entradas, saídas, despesas fixas e variáveis, orçamentos, gráficos e relatórios.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
