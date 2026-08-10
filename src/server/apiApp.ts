@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import cors from 'cors';
 import { checkNeonConnection, initNeonTables, getNeonSql } from '../db/neonService';
 
@@ -9,32 +9,48 @@ export function createApiApp() {
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
 
-  // API Routes
-  app.get('/api/health', (req, res) => {
+  const router = Router();
+
+  // API Health Check
+  router.get('/health', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
   // DB Status Check
-  app.get('/api/db/status', async (req, res) => {
-    const status = await checkNeonConnection();
-    res.json({
-      configured: Boolean(process.env.DATABASE_URL),
-      ...status,
-    });
+  router.get('/db/status', async (req, res) => {
+    try {
+      const status = await checkNeonConnection();
+      res.json({
+        configured: Boolean(process.env.DATABASE_URL),
+        ...status,
+      });
+    } catch (err: any) {
+      console.error('Error checking DB status:', err);
+      res.status(500).json({
+        configured: Boolean(process.env.DATABASE_URL),
+        connected: false,
+        message: err.message || 'Erro ao conectar ao banco de dados Neon.',
+      });
+    }
   });
 
   // DB Init Tables
-  app.post('/api/db/init', async (req, res) => {
-    const success = await initNeonTables();
-    if (success) {
-      res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no Neon PostgreSQL!' });
-    } else {
-      res.status(500).json({ success: false, message: 'Erro ao inicializar tabelas no Neon.' });
+  router.post('/db/init', async (req, res) => {
+    try {
+      const success = await initNeonTables();
+      if (success) {
+        res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no Neon PostgreSQL!' });
+      } else {
+        res.status(500).json({ success: false, message: 'Erro ao inicializar tabelas no Neon.' });
+      }
+    } catch (err: any) {
+      console.error('Error initializing tables:', err);
+      res.status(500).json({ success: false, message: err.message || 'Erro ao inicializar tabelas.' });
     }
   });
 
   // Sync / Bulk Get
-  app.get('/api/db/data', async (req, res) => {
+  router.get('/db/data', async (req, res) => {
     const sql = getNeonSql();
     if (!sql) {
       return res.status(400).json({ error: 'DATABASE_URL não configurada' });
@@ -69,13 +85,13 @@ export function createApiApp() {
   });
 
   // Bulk Save / Import to Neon
-  app.post('/api/db/sync', async (req, res) => {
+  router.post('/db/sync', async (req, res) => {
     const sql = getNeonSql();
     if (!sql) {
       return res.status(400).json({ error: 'DATABASE_URL não configurada' });
     }
 
-    const { categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets } = req.body;
+    const { categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets } = req.body || {};
 
     try {
       await initNeonTables();
@@ -129,6 +145,10 @@ export function createApiApp() {
       res.status(500).json({ error: err.message || 'Erro ao sincronizar dados com o Neon' });
     }
   });
+
+  // Mount API router under /api AND root / to support both local and Vercel serverless routes
+  app.use('/api', router);
+  app.use('/', router);
 
   return app;
 }
