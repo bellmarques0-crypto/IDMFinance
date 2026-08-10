@@ -19,14 +19,14 @@ import {
 } from './initialData';
 
 const KEYS = {
-  TRANSACTIONS: 'cfp_transactions_v1',
-  CATEGORIES: 'cfp_categories_v1',
-  RECURRING: 'cfp_recurring_v1',
-  RECURRING_PAYMENTS: 'cfp_recurring_payments_v1',
-  BUDGETS: 'cfp_budgets_v1',
-  CATEGORY_BUDGETS: 'cfp_category_budgets_v1',
-  CREDIT_CARDS: 'cfp_credit_cards_v1',
-  INSTALLMENT_PLANS: 'cfp_installment_plans_v1',
+  TRANSACTIONS: 'cfp_transactions_v2',
+  CATEGORIES: 'cfp_categories_v2',
+  RECURRING: 'cfp_recurring_v2',
+  RECURRING_PAYMENTS: 'cfp_recurring_payments_v2',
+  BUDGETS: 'cfp_budgets_v2',
+  CATEGORY_BUDGETS: 'cfp_category_budgets_v2',
+  CREDIT_CARDS: 'cfp_credit_cards_v2',
+  INSTALLMENT_PLANS: 'cfp_installment_plans_v2',
 };
 
 // Safe JSON fetcher from LocalStorage
@@ -52,6 +52,19 @@ function setItem<T>(key: string, value: T): void {
 export const StorageEngine = {
   // Initialize with seed data if keys don't exist
   init() {
+    // Clear old v1 keys if present to ensure no legacy mock data persists
+    const legacyKeys = [
+      'cfp_transactions_v1',
+      'cfp_categories_v1',
+      'cfp_recurring_v1',
+      'cfp_recurring_payments_v1',
+      'cfp_budgets_v1',
+      'cfp_category_budgets_v1',
+      'cfp_credit_cards_v1',
+      'cfp_installment_plans_v1',
+    ];
+    legacyKeys.forEach((key) => localStorage.removeItem(key));
+
     if (!localStorage.getItem(KEYS.CATEGORIES)) {
       setItem(KEYS.CATEGORIES, DEFAULT_CATEGORIES);
     }
