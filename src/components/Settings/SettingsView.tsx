@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, Database, CheckCircle2, XCircle, Loader2, User, Lock, KeyRound, Save, LogOut, AlertCircle, Eye, EyeOff, Link, Unlink } from 'lucide-react';
+import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, Database, CheckCircle2, XCircle, Loader2, User, Lock, KeyRound, Save, LogOut, AlertCircle } from 'lucide-react';
 
 interface SettingsViewProps {
   onResetSampleData: () => void;
@@ -26,10 +26,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  // Neon DATABASE_URL input state
-  const [neonUrlInput, setNeonUrlInput] = useState<string>(() => localStorage.getItem('neon_db_url') || '');
-  const [showNeonPassword, setShowNeonPassword] = useState(false);
-
   // User Management State
   const [usernameInput, setUsernameInput] = useState(currentUser || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -37,26 +33,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Clear any legacy custom URL from localStorage
+  useEffect(() => {
+    localStorage.removeItem('neon_db_url');
+  }, []);
+
   useEffect(() => {
     if (currentUser) {
       setUsernameInput(currentUser);
     }
   }, [currentUser]);
 
-  const checkDbStatus = async (customUrl?: string) => {
+  const checkDbStatus = async () => {
     setLoadingDb(true);
-    let targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
-    if (targetUrl && (targetUrl.startsWith('postgres://') || targetUrl.startsWith('postgresql://')) && !targetUrl.includes('sslmode=')) {
-      targetUrl = targetUrl.includes('?') ? targetUrl.replace(/\?.*$/, '?sslmode=require') : `${targetUrl}?sslmode=require`;
-    }
-
     try {
-      const res = await fetch('/api/db/status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString: targetUrl || undefined }),
-      });
-
+      const res = await fetch('/api/db/status');
       let data: any = null;
       try {
         data = await res.json();
@@ -70,7 +61,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       }
 
       const errorObj = {
-        configured: Boolean(targetUrl),
+        configured: false,
         connected: false,
         message: `Servidor indisponível ou resposta inválida (HTTP ${res.status}).`,
       };
@@ -93,52 +84,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     checkDbStatus();
   }, []);
 
-  const handleSaveNeonUrl = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    let cleanUrl = neonUrlInput.trim();
-    if (!cleanUrl) {
-      localStorage.removeItem('neon_db_url');
-      setSyncMessage('Conexão customizada removida. Verificando configuração de ambiente (.env)...');
-      await checkDbStatus('');
-      return;
-    }
-
-    if ((cleanUrl.startsWith('postgres://') || cleanUrl.startsWith('postgresql://')) && !cleanUrl.includes('sslmode=')) {
-      cleanUrl = cleanUrl.includes('?') ? cleanUrl.replace(/\?.*$/, '?sslmode=require') : `${cleanUrl}?sslmode=require`;
-      setNeonUrlInput(cleanUrl);
-    }
-
-    setSyncMessage(null);
-    const statusData = await checkDbStatus(cleanUrl);
-    if (statusData.connected) {
-      localStorage.setItem('neon_db_url', cleanUrl);
-      setSyncMessage('URL do Neon salva com sucesso! Sincronizado.');
-      await handleInitTables(cleanUrl);
-    } else {
-      setSyncMessage(`Falha ao conectar: ${statusData.message}`);
-    }
-  };
-
-  const handleClearNeonUrl = async () => {
-    localStorage.removeItem('neon_db_url');
-    setNeonUrlInput('');
-    setSyncMessage('URL salva removida. Testando configuração padrão (.env)...');
-    await checkDbStatus('');
-  };
-
-  const handleInitTables = async (customUrl?: string) => {
+  const handleInitTables = async () => {
     setSyncing(true);
     setSyncMessage(null);
     try {
-      let targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
-      if (targetUrl && (targetUrl.startsWith('postgres://') || targetUrl.startsWith('postgresql://')) && !targetUrl.includes('sslmode=')) {
-        targetUrl = targetUrl.includes('?') ? targetUrl.replace(/\?.*$/, '?sslmode=require') : `${targetUrl}?sslmode=require`;
-      }
-
       const res = await fetch('/api/db/init', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionString: targetUrl || undefined }),
       });
 
       let data: any = null;
@@ -150,7 +101,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       if (data && data.success) {
         setSyncMessage('Tabelas no Neon verificadas e prontas com sucesso!');
-        checkDbStatus(targetUrl);
+        checkDbStatus();
       } else {
         setSyncMessage(`Erro ao inicializar tabelas: ${data?.message || `HTTP ${res.status}`}`);
       }
@@ -416,71 +367,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        {/* CONNECTION STRING INPUT FORM & ENV INFO */}
-        <form onSubmit={handleSaveNeonUrl} className="space-y-3 p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-slate-800">
-              URL de Conexão do Neon (DATABASE_URL)
-            </label>
-            <span className="text-[10px] text-slate-500 font-mono bg-white px-2 py-0.5 rounded border">
-              .env ou formulário
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500">
-            Cole a string de conexão obtida no painel do Neon (botão "Connect"). Caso este campo fique em branco, o sistema usará automaticamente a variável <code className="font-mono bg-slate-200 px-1 rounded">DATABASE_URL</code> do arquivo <code className="font-mono bg-slate-200 px-1 rounded">.env</code> no servidor.
-          </p>
-
-          <div className="relative flex items-center">
-            <input
-              type={showNeonPassword ? 'text' : 'password'}
-              value={neonUrlInput}
-              onChange={(e) => setNeonUrlInput(e.target.value)}
-              placeholder="postgresql://usuario:senha@ep-exemplo.us-east-2.aws.neon.tech/neondb?sslmode=require"
-              className="w-full pl-3 pr-20 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-            />
-            <div className="absolute right-2 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowNeonPassword(!showNeonPassword)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-md"
-                title={showNeonPassword ? 'Ocultar senha' : 'Exibir senha'}
-              >
-                {showNeonPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 flex-wrap pt-1">
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={loadingDb}
-                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition shadow-xs disabled:opacity-50"
-              >
-                {loadingDb ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link className="w-3.5 h-3.5" />}
-                Salvar & Conectar
-              </button>
-
-              {localStorage.getItem('neon_db_url') && (
-                <button
-                  type="button"
-                  onClick={handleClearNeonUrl}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-xl text-xs transition"
-                >
-                  <Unlink className="w-3.5 h-3.5" />
-                  Usar apenas .env do Servidor
-                </button>
-              )}
-            </div>
-
-            {syncMessage && (
-              <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
-                {syncMessage}
-              </span>
-            )}
-          </div>
-        </form>
-
         {/* STATUS BADGE */}
         {dbStatus && (
           <div
@@ -497,10 +383,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             )}
             <div className="space-y-1 w-full">
               <div className="font-bold text-sm flex items-center justify-between gap-2">
-                <span>{dbStatus.connected ? 'Conectado ao Neon PostgreSQL' : 'Pendente de Conexão'}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 bg-white/80 border rounded-md">
-                  {localStorage.getItem('neon_db_url') ? 'Custom URL' : '.env'}
-                </span>
+                <span>{dbStatus.connected ? 'Conectado ao Neon PostgreSQL (Servidor)' : 'Pendente de Conexão'}</span>
+                <span className="text-[10px] font-mono px-2 py-0.5 bg-white/80 border rounded-md">.env</span>
               </div>
               <p className="leading-relaxed">{dbStatus.message}</p>
               {dbStatus.version && (
@@ -510,7 +394,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
 
-        <div className="pt-2 flex items-center gap-3">
+        <div className="text-xs text-slate-600 space-y-2 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <p className="font-semibold text-slate-800">Conexão Segura e Automática (.env):</p>
+          <p>
+            O banco de dados do Neon PostgreSQL está configurado e protegido através do arquivo de variáveis de ambiente <code className="font-mono bg-slate-200 px-1.5 py-0.5 rounded text-slate-800">.env</code> do servidor. Suas credenciais e senhas permanecem totalmente privadas e não são expostas ao navegador.
+          </p>
+        </div>
+
+        <div className="pt-2 flex items-center justify-between gap-3 flex-wrap">
           <button
             onClick={() => handleInitTables()}
             disabled={syncing || !dbStatus?.connected}
@@ -519,6 +410,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
             Inicializar / Verificar Estrutura de Tabelas
           </button>
+          {syncMessage && <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">{syncMessage}</span>}
         </div>
       </div>
 

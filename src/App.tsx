@@ -78,10 +78,6 @@ export default function App() {
   } | null>(null);
 
   // Initialize and load data on boot with Neon PostgreSQL Cloud Sync
-  const getCustomDbUrl = () => {
-    return localStorage.getItem('neon_db_url') || undefined;
-  };
-
   const syncWithNeon = async (dataToSync?: any) => {
     try {
       const payload = dataToSync || {
@@ -97,10 +93,7 @@ export default function App() {
       await fetch('/api/db/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          connectionString: getCustomDbUrl(),
-          ...payload,
-        }),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
       console.warn('Sync to Neon failed:', err);
@@ -112,13 +105,7 @@ export default function App() {
 
     // Try fetching from Neon Cloud first
     try {
-      const res = await fetch('/api/db/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          connectionString: getCustomDbUrl(),
-        }),
-      });
+      const res = await fetch('/api/db/data');
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const cloudData = await res.json();
