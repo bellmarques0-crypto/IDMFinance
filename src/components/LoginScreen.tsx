@@ -6,7 +6,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState('Izabel');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isOpening, setIsOpening] = useState(false);
@@ -14,27 +14,46 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
     if (!cleanUser) {
       setError('Por favor, informe seu usuário.');
       return;
     }
-    if (!password.trim()) {
+    if (!cleanPass) {
       setError('Por favor, informe sua senha.');
       return;
     }
 
-    // Check if password exists for user
-    const savedPassword = localStorage.getItem(`idm_pass_${cleanUser}`) || localStorage.getItem('idm_user_password');
-    if (savedPassword && password !== savedPassword) {
-      setError('Senha incorreta! Verifique a senha digitada.');
-      return;
+    // Check fixed credential for Izabel / 110424 or saved password
+    const isIzabel = cleanUser.toLowerCase() === 'izabel';
+    const savedPassword = localStorage.getItem(`idm_pass_${cleanUser}`) || 
+                          localStorage.getItem('idm_user_password') || 
+                          (isIzabel ? '110424' : null);
+
+    if (isIzabel) {
+      const validPass = savedPassword || '110424';
+      if (cleanPass !== validPass) {
+        setError('Senha incorreta! Para a usuária Izabel, a senha é 110424.');
+        return;
+      }
+    } else {
+      if (savedPassword) {
+        if (cleanPass !== savedPassword) {
+          setError('Senha incorreta! Verifique a senha digitada.');
+          return;
+        }
+      } else {
+        if (cleanPass !== '110424') {
+          setError('Usuário ou senha incorretos! Credenciais iniciais: Izabel / 110424');
+          return;
+        }
+      }
     }
 
-    // If no password saved yet for this user, store it
-    if (!savedPassword) {
-      localStorage.setItem(`idm_pass_${cleanUser}`, password);
-      localStorage.setItem('idm_user_password', password);
-    }
+    // Store current password
+    localStorage.setItem(`idm_pass_${cleanUser}`, cleanPass);
+    localStorage.setItem('idm_user_password', cleanPass);
 
     setError('');
     setIsOpening(true);
@@ -196,7 +215,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             {/* Quick Demo Helper Hint */}
             <div className="mt-4 text-center">
               <p className="text-[11px] text-[#c5e6c1]/90 font-medium">
-                Qualquer usuário e senha liberam o acesso imediato.
+                Usuário padrão: <strong className="text-white font-bold">Izabel</strong> &bull; Senha: <strong className="text-white font-bold">110424</strong>
               </p>
             </div>
           </div>
