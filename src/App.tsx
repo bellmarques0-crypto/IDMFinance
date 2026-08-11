@@ -80,23 +80,23 @@ export default function App() {
   // Initialize and load data on boot with Neon PostgreSQL Cloud Sync
   const syncWithNeon = async (dataToSync?: any) => {
     try {
-      const payload = dataToSync || {
-        categories: StorageEngine.getCategories(),
-        transactions: StorageEngine.getTransactions(),
-        recurring: StorageEngine.getRecurringExpenses(),
-        creditCards: StorageEngine.getCreditCards(),
-        installmentPlans: StorageEngine.getInstallmentPlans(),
-        monthlyBudgets: StorageEngine.getMonthlyBudgets(),
-        categoryBudgets: StorageEngine.getCategoryBudgets(selectedMonthYear),
-      };
-
       const dbUrl = localStorage.getItem('neon_db_url') || '';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (dbUrl) headers['X-Database-Url'] = dbUrl;
+      const payload = {
+        connectionString: dbUrl,
+        ...(dataToSync || {
+          categories: StorageEngine.getCategories(),
+          transactions: StorageEngine.getTransactions(),
+          recurring: StorageEngine.getRecurringExpenses(),
+          creditCards: StorageEngine.getCreditCards(),
+          installmentPlans: StorageEngine.getInstallmentPlans(),
+          monthlyBudgets: StorageEngine.getMonthlyBudgets(),
+          categoryBudgets: StorageEngine.getCategoryBudgets(selectedMonthYear),
+        }),
+      };
 
       await fetch('/api/db/sync', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
     } catch (err) {
@@ -110,10 +110,11 @@ export default function App() {
     // Try fetching from Neon Cloud first
     try {
       const dbUrl = localStorage.getItem('neon_db_url') || '';
-      const headers: Record<string, string> = {};
-      if (dbUrl) headers['X-Database-Url'] = dbUrl;
-
-      const res = await fetch('/api/db/data', { headers });
+      const res = await fetch('/api/db/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionString: dbUrl }),
+      });
       if (res.ok) {
         const cloudData = await res.json();
         if (cloudData.transactions && Array.isArray(cloudData.transactions)) {

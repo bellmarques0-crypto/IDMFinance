@@ -45,21 +45,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const checkDbStatus = async (customUrl?: string) => {
     setLoadingDb(true);
-    const targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
+    let targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
+    if (targetUrl && (targetUrl.startsWith('postgres://') || targetUrl.startsWith('postgresql://')) && !targetUrl.includes('sslmode=')) {
+      targetUrl = targetUrl.includes('?') ? targetUrl.replace(/\?.*$/, '?sslmode=require') : `${targetUrl}?sslmode=require`;
+    }
+
     try {
-      const headers: Record<string, string> = {};
-      if (targetUrl) {
-        headers['X-Database-Url'] = targetUrl;
-      }
-      const res = await fetch('/api/db/status', { headers });
+      const res = await fetch('/api/db/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionString: targetUrl }),
+      });
       const data = await res.json();
       setDbStatus(data);
       return data;
-    } catch (err) {
+    } catch (err: any) {
       const errorObj = {
         configured: Boolean(targetUrl),
         connected: false,
-        message: 'Erro ao comunicar com o servidor da aplicação.',
+        message: `Erro ao comunicar com o servidor: ${err?.message || 'Falha de conexão'}`,
       };
       setDbStatus(errorObj);
       return errorObj;
@@ -74,7 +78,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveNeonUrl = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanUrl = neonUrlInput.trim();
+    let cleanUrl = neonUrlInput.trim();
     if (!cleanUrl) {
       localStorage.removeItem('neon_db_url');
       setSyncMessage('Conexão customizada removida. Verificando ambiente...');
@@ -82,14 +86,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return;
     }
 
+    if ((cleanUrl.startsWith('postgres://') || cleanUrl.startsWith('postgresql://')) && !cleanUrl.includes('sslmode=')) {
+      cleanUrl = cleanUrl.includes('?') ? cleanUrl.replace(/\?.*$/, '?sslmode=require') : `${cleanUrl}?sslmode=require`;
+      setNeonUrlInput(cleanUrl);
+    }
+
     setSyncMessage(null);
     const statusData = await checkDbStatus(cleanUrl);
     if (statusData.connected) {
       localStorage.setItem('neon_db_url', cleanUrl);
-      setSyncMessage('URL do Neon salva com sucesso! Verificando/criando tabelas...');
+      setSyncMessage('URL do Neon salva com sucesso! Sincronizado.');
       await handleInitTables(cleanUrl);
     } else {
-      setSyncMessage('Falha ao conectar. Verifique se a URL do Neon está completa e correta.');
+      setSyncMessage(`Falha ao conectar: ${statusData.message}`);
     }
   };
 
@@ -104,11 +113,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSyncing(true);
     setSyncMessage(null);
     try {
-      const targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (targetUrl) headers['X-Database-Url'] = targetUrl;
+      let targetUrl = customUrl !== undefined ? customUrl : (neonUrlInput.trim() || localStorage.getItem('neon_db_url') || '');
+      if (targetUrl && (targetUrl.startsWith('postgres://') || targetUrl.startsWith('postgresql://')) && !targetUrl.includes('sslmode=')) {
+        targetUrl = targetUrl.includes('?') ? targetUrl.replace(/\?.*$/, '?sslmode=require') : `${targetUrl}?sslmode=require`;
+      }
 
-      const res = await fetch('/api/db/init', { method: 'POST', headers });
+      const res = await fetch('/api/db/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionString: targetUrl }),
+      });
       const data = await res.json();
       if (data.success) {
         setSyncMessage('Tabelas no Neon verificadas e prontas com sucesso!');

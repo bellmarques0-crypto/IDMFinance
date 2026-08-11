@@ -24,8 +24,8 @@ export function createApiApp() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
-  // DB Status Check
-  router.get('/db/status', async (req, res) => {
+  // DB Status Check (Supports GET and POST)
+  router.all('/db/status', async (req, res) => {
     const dbUrl = getDbUrlFromReq(req);
     try {
       const status = await checkNeonConnection(dbUrl);
@@ -43,8 +43,8 @@ export function createApiApp() {
     }
   });
 
-  // DB Init Tables
-  router.post('/db/init', async (req, res) => {
+  // DB Init Tables (Supports POST)
+  router.all('/db/init', async (req, res) => {
     const dbUrl = getDbUrlFromReq(req);
     try {
       const success = await initNeonTables(dbUrl);
@@ -59,8 +59,8 @@ export function createApiApp() {
     }
   });
 
-  // Sync / Bulk Get
-  router.get('/db/data', async (req, res) => {
+  // Sync / Bulk Get (Supports GET and POST)
+  router.all('/db/data', async (req, res) => {
     const dbUrl = getDbUrlFromReq(req);
     const sql = getNeonSql(dbUrl);
     if (!sql) {

@@ -6,6 +6,18 @@ export function getNeonSql(connectionString?: string) {
     return null;
   }
   dbUrl = dbUrl.trim().replace(/^["']|["']$/g, '');
+
+  // Auto-fix truncated or missing sslmode parameter for Neon connections
+  if (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://')) {
+    if (!dbUrl.includes('sslmode=')) {
+      if (dbUrl.includes('?')) {
+        dbUrl = dbUrl.replace(/\?.*$/, '?sslmode=require');
+      } else {
+        dbUrl += '?sslmode=require';
+      }
+    }
+  }
+
   try {
     return neon(dbUrl);
   } catch (error) {
