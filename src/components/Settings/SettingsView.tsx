@@ -51,13 +51,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
 
     try {
-      const headers: Record<string, string> = {};
-      if (targetUrl) {
-        headers['x-database-url'] = targetUrl;
-      }
-
       const res = await fetch('/api/db/status', {
-        headers,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionString: targetUrl || undefined }),
       });
 
       let data: any = null;
@@ -138,15 +135,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         targetUrl = targetUrl.includes('?') ? targetUrl.replace(/\?.*$/, '?sslmode=require') : `${targetUrl}?sslmode=require`;
       }
 
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (targetUrl) {
-        headers['x-database-url'] = targetUrl;
-      }
-
       const res = await fetch('/api/db/init', {
         method: 'POST',
-        headers,
-        body: JSON.stringify({ connectionString: targetUrl }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connectionString: targetUrl || undefined }),
       });
 
       let data: any = null;

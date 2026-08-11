@@ -6,14 +6,14 @@ import cors from 'cors';
 import { checkNeonConnection, initNeonTables, getNeonSql } from '../db/neonService';
 
 function getDbUrlFromReq(req: express.Request): string | undefined {
-  const headerUrl = req.headers['x-database-url'] as string;
-  if (headerUrl && headerUrl.trim() && headerUrl !== 'undefined' && headerUrl !== 'null') return headerUrl.trim();
-  
-  const queryUrl = req.query.connectionString ? String(req.query.connectionString).trim() : '';
-  if (queryUrl && queryUrl !== 'undefined' && queryUrl !== 'null') return queryUrl;
-  
   const bodyUrl = req.body?.connectionString ? String(req.body.connectionString).trim() : '';
   if (bodyUrl && bodyUrl !== 'undefined' && bodyUrl !== 'null') return bodyUrl;
+
+  const queryUrl = req.query?.connectionString ? String(req.query.connectionString).trim() : '';
+  if (queryUrl && queryUrl !== 'undefined' && queryUrl !== 'null') return queryUrl;
+
+  const headerUrl = req.headers['x-database-url'] as string;
+  if (headerUrl && headerUrl.trim() && headerUrl !== 'undefined' && headerUrl !== 'null') return headerUrl.trim();
 
   return process.env.DATABASE_URL;
 }

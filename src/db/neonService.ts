@@ -34,6 +34,10 @@ export async function checkNeonConnection(connectionString?: string): Promise<{
   message: string;
   version?: string;
 }> {
+  if (connectionString) {
+    connectionString = connectionString.trim().replace(/^["']|["']$/g, '');
+  }
+
   if (connectionString && (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://'))) {
     return {
       connected: false,
