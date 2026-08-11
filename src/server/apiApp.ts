@@ -176,6 +176,17 @@ export function createApiApp() {
       const db = getSqliteDb();
 
       if (Array.isArray(categories)) {
+        const catIds = categories.map((c: any) => c.id).filter(Boolean);
+        if (catIds.length > 0) {
+          const placeholders = catIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM categories WHERE id NOT IN (${placeholders});`,
+            args: catIds,
+          });
+        } else {
+          await db.execute('DELETE FROM categories;');
+        }
+
         for (const cat of categories) {
           await db.execute({
             sql: `
@@ -200,6 +211,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(transactions)) {
+        const txIds = transactions.map((t: any) => t.id).filter(Boolean);
+        if (txIds.length > 0) {
+          const placeholders = txIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM transactions WHERE id NOT IN (${placeholders});`,
+            args: txIds,
+          });
+        } else {
+          await db.execute('DELETE FROM transactions;');
+        }
+
         for (const tx of transactions) {
           await db.execute({
             sql: `
@@ -244,6 +266,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(creditCards)) {
+        const cardIds = creditCards.map((c: any) => c.id).filter(Boolean);
+        if (cardIds.length > 0) {
+          const placeholders = cardIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM credit_cards WHERE id NOT IN (${placeholders});`,
+            args: cardIds,
+          });
+        } else {
+          await db.execute('DELETE FROM credit_cards;');
+        }
+
         for (const card of creditCards) {
           await db.execute({
             sql: `
@@ -261,6 +294,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(recurring)) {
+        const recIds = recurring.map((r: any) => r.id).filter(Boolean);
+        if (recIds.length > 0) {
+          const placeholders = recIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM recurring_expenses WHERE id NOT IN (${placeholders});`,
+            args: recIds,
+          });
+        } else {
+          await db.execute('DELETE FROM recurring_expenses;');
+        }
+
         for (const rec of recurring) {
           await db.execute({
             sql: `
@@ -293,6 +337,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(installmentPlans)) {
+        const planIds = installmentPlans.map((p: any) => p.id).filter(Boolean);
+        if (planIds.length > 0) {
+          const placeholders = planIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM installment_plans WHERE id NOT IN (${placeholders});`,
+            args: planIds,
+          });
+        } else {
+          await db.execute('DELETE FROM installment_plans;');
+        }
+
         for (const plan of installmentPlans) {
           await db.execute({
             sql: `
@@ -325,6 +380,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(monthlyBudgets)) {
+        const mbIds = monthlyBudgets.map((m: any) => m.id).filter(Boolean);
+        if (mbIds.length > 0) {
+          const placeholders = mbIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM monthly_budgets WHERE id NOT IN (${placeholders});`,
+            args: mbIds,
+          });
+        } else {
+          await db.execute('DELETE FROM monthly_budgets;');
+        }
+
         for (const mb of monthlyBudgets) {
           await db.execute({
             sql: `
@@ -339,6 +405,17 @@ export function createApiApp() {
       }
 
       if (Array.isArray(categoryBudgets)) {
+        const cbIds = categoryBudgets.map((c: any) => c.id).filter(Boolean);
+        if (cbIds.length > 0) {
+          const placeholders = cbIds.map(() => '?').join(',');
+          await db.execute({
+            sql: `DELETE FROM category_budgets WHERE id NOT IN (${placeholders});`,
+            args: cbIds,
+          });
+        } else {
+          await db.execute('DELETE FROM category_budgets;');
+        }
+
         for (const cb of categoryBudgets) {
           await db.execute({
             sql: `

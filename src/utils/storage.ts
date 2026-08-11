@@ -50,6 +50,24 @@ function setItem<T>(key: string, value: T): void {
 }
 
 export const StorageEngine = {
+  setAllData(data: {
+    categories?: Category[];
+    transactions?: Transaction[];
+    recurring?: RecurringExpense[];
+    creditCards?: CreditCard[];
+    installmentPlans?: InstallmentPlan[];
+    monthlyBudgets?: MonthlyBudget[];
+    categoryBudgets?: CategoryBudget[];
+  }) {
+    if (data.categories) setItem(KEYS.CATEGORIES, data.categories);
+    if (data.transactions) setItem(KEYS.TRANSACTIONS, data.transactions);
+    if (data.recurring) setItem(KEYS.RECURRING, data.recurring);
+    if (data.creditCards) setItem(KEYS.CREDIT_CARDS, data.creditCards);
+    if (data.installmentPlans) setItem(KEYS.INSTALLMENT_PLANS, data.installmentPlans);
+    if (data.monthlyBudgets) setItem(KEYS.BUDGETS, data.monthlyBudgets);
+    if (data.categoryBudgets) setItem(KEYS.CATEGORY_BUDGETS, data.categoryBudgets);
+  },
+
   // Initialize with seed data if keys don't exist
   init() {
     // Clear old v1 keys if present to ensure no legacy mock data persists

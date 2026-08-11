@@ -114,8 +114,9 @@ export default function App() {
           (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0);
 
         if (hasCloudData) {
+          let mappedTxs: Transaction[] = [];
           if (Array.isArray(cloudData.transactions)) {
-            const mappedTxs: Transaction[] = cloudData.transactions.map((t: any) => ({
+            mappedTxs = cloudData.transactions.map((t: any) => ({
               id: t.id,
               type: t.type,
               date: typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0],
@@ -136,8 +137,9 @@ export default function App() {
             setTransactions(mappedTxs);
           }
 
+          let mappedCats: Category[] = [];
           if (Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
-            const mappedCats: Category[] = cloudData.categories.map((c: any) => ({
+            mappedCats = cloudData.categories.map((c: any) => ({
               id: c.id,
               name: c.name,
               type: c.type,
@@ -147,11 +149,13 @@ export default function App() {
             }));
             setCategories(mappedCats);
           } else {
-            setCategories(StorageEngine.getCategories());
+            mappedCats = StorageEngine.getCategories();
+            setCategories(mappedCats);
           }
 
+          let mappedCards: CreditCard[] = [];
           if (Array.isArray(cloudData.creditCards) && cloudData.creditCards.length > 0) {
-            const mappedCards: CreditCard[] = cloudData.creditCards.map((c: any) => ({
+            mappedCards = cloudData.creditCards.map((c: any) => ({
               id: c.id,
               name: c.name,
               closingDay: Number(c.closing_day || c.closingDay),
@@ -160,11 +164,13 @@ export default function App() {
             }));
             setCreditCards(mappedCards);
           } else {
-            setCreditCards(StorageEngine.getCreditCards());
+            mappedCards = StorageEngine.getCreditCards();
+            setCreditCards(mappedCards);
           }
 
+          let mappedRec: RecurringExpense[] = [];
           if (Array.isArray(cloudData.recurring) && cloudData.recurring.length > 0) {
-            const mappedRec: RecurringExpense[] = cloudData.recurring.map((r: any) => ({
+            mappedRec = cloudData.recurring.map((r: any) => ({
               id: r.id,
               description: r.description,
               categoryId: r.category_id || r.categoryId,
@@ -178,11 +184,13 @@ export default function App() {
             }));
             setRecurringExpenses(mappedRec);
           } else {
-            setRecurringExpenses(StorageEngine.getRecurringExpenses());
+            mappedRec = StorageEngine.getRecurringExpenses();
+            setRecurringExpenses(mappedRec);
           }
 
+          let mappedPlans: InstallmentPlan[] = [];
           if (Array.isArray(cloudData.installmentPlans) && cloudData.installmentPlans.length > 0) {
-            const mappedPlans: InstallmentPlan[] = cloudData.installmentPlans.map((p: any) => ({
+            mappedPlans = cloudData.installmentPlans.map((p: any) => ({
               id: p.id,
               description: p.description,
               creditCardId: p.credit_card_id || p.creditCardId,
@@ -196,22 +204,26 @@ export default function App() {
             }));
             setInstallmentPlans(mappedPlans);
           } else {
-            setInstallmentPlans(StorageEngine.getInstallmentPlans());
+            mappedPlans = StorageEngine.getInstallmentPlans();
+            setInstallmentPlans(mappedPlans);
           }
 
+          let mappedMB: MonthlyBudget[] = [];
           if (Array.isArray(cloudData.monthlyBudgets) && cloudData.monthlyBudgets.length > 0) {
-            const mappedMB: MonthlyBudget[] = cloudData.monthlyBudgets.map((m: any) => ({
+            mappedMB = cloudData.monthlyBudgets.map((m: any) => ({
               id: m.id,
               monthYear: m.month_year || m.monthYear,
               overallAmount: Number(m.overall_amount || m.overallAmount),
             }));
             setMonthlyBudgets(mappedMB);
           } else {
-            setMonthlyBudgets(StorageEngine.getMonthlyBudgets());
+            mappedMB = StorageEngine.getMonthlyBudgets();
+            setMonthlyBudgets(mappedMB);
           }
 
+          let mappedCB: CategoryBudget[] = [];
           if (Array.isArray(cloudData.categoryBudgets) && cloudData.categoryBudgets.length > 0) {
-            const mappedCB: CategoryBudget[] = cloudData.categoryBudgets.map((cb: any) => ({
+            mappedCB = cloudData.categoryBudgets.map((cb: any) => ({
               id: cb.id,
               monthYear: cb.month_year || cb.monthYear,
               categoryId: cb.category_id || cb.categoryId,
@@ -219,10 +231,22 @@ export default function App() {
             }));
             setCategoryBudgets(mappedCB);
           } else {
-            setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
+            mappedCB = StorageEngine.getCategoryBudgets(selectedMonthYear);
+            setCategoryBudgets(mappedCB);
           }
 
           setRecurringPayments(StorageEngine.getRecurringPayments());
+
+          // Keep LocalStorage in sync with server state
+          StorageEngine.setAllData({
+            transactions: mappedTxs,
+            categories: mappedCats,
+            creditCards: mappedCards,
+            recurring: mappedRec,
+            installmentPlans: mappedPlans,
+            monthlyBudgets: mappedMB,
+            categoryBudgets: mappedCB,
+          });
           return;
         } else {
           // Cloud database is empty, seed it with sample data
@@ -381,6 +405,7 @@ export default function App() {
   const handleSaveCreditCard = (cardData: Omit<CreditCard, 'id'>) => {
     StorageEngine.saveCreditCard(cardData);
     reloadData();
+    syncWithNeon();
   };
 
   const handleDeleteCreditCard = (id: string) => {
@@ -404,12 +429,14 @@ export default function App() {
   }) => {
     StorageEngine.createInstallmentPurchase(planData);
     reloadData();
+    syncWithNeon();
   };
 
   // --- HANDLERS FOR BUDGETS ---
   const handleSaveMonthlyBudget = (monthYear: string, overallAmount: number) => {
     StorageEngine.saveMonthlyBudget(monthYear, overallAmount);
     reloadData();
+    syncWithNeon();
   };
 
   const handleSaveCategoryBudget = (
@@ -419,11 +446,13 @@ export default function App() {
   ) => {
     StorageEngine.saveCategoryBudget(monthYear, categoryId, amount);
     reloadData();
+    syncWithNeon();
   };
 
   const handleDeleteCategoryBudget = (id: string) => {
     StorageEngine.deleteCategoryBudget(id);
     reloadData();
+    syncWithNeon();
   };
 
   // --- CONFIRM DELETE EXECUTION ---
@@ -449,11 +478,13 @@ export default function App() {
   const handleResetSampleData = () => {
     StorageEngine.resetToSampleData();
     reloadData();
+    syncWithNeon();
   };
 
   const handleClearAllData = () => {
     StorageEngine.clearAllData();
     reloadData();
+    syncWithNeon();
   };
 
   // Handle Login & Logout
