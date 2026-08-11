@@ -77,8 +77,8 @@ export default function App() {
     description: string;
   } | null>(null);
 
-  // Initialize and load data on boot with Neon PostgreSQL Cloud Sync
-  const syncWithNeon = async (dataToSync?: any) => {
+  // Initialize and load data on boot with SQLite Sync
+  const syncWithSqlite = async (dataToSync?: any) => {
     try {
       const payload = dataToSync || {
         categories: StorageEngine.getCategories(),
@@ -96,14 +96,14 @@ export default function App() {
         body: JSON.stringify(payload),
       });
     } catch (err) {
-      console.warn('Sync to Neon failed:', err);
+      console.warn('Sync to SQLite failed:', err);
     }
   };
 
   const reloadData = async () => {
     StorageEngine.init();
 
-    // Try fetching from Neon Cloud first
+    // Try fetching from SQLite database first
     try {
       const res = await fetch('/api/db/data');
       const contentType = res.headers.get('content-type') || '';
@@ -267,7 +267,7 @@ export default function App() {
           setCategoryBudgets(localCB);
           setRecurringPayments(StorageEngine.getRecurringPayments());
 
-          syncWithNeon({
+          syncWithSqlite({
             categories: localCats,
             transactions: localTxs,
             recurring: localRec,
@@ -280,7 +280,7 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.warn('Fetch from Neon database skipped/failed:', err);
+      console.warn('Fetch from SQLite database skipped/failed:', err);
     }
 
     // Fallback to initial local engine state
@@ -321,7 +321,7 @@ export default function App() {
   ) => {
     StorageEngine.saveTransaction(txData);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleDeleteTransaction = (tx: Transaction) => {
@@ -349,7 +349,7 @@ export default function App() {
   ) => {
     StorageEngine.saveRecurringExpense(recData);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleDeleteRecurring = (rec: RecurringExpense) => {
@@ -385,7 +385,7 @@ export default function App() {
   const handleSaveCategory = (catData: Omit<Category, 'id'> & { id?: string }) => {
     StorageEngine.saveCategory(catData);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleDeleteCategory = (cat: Category) => {
@@ -405,7 +405,7 @@ export default function App() {
   const handleSaveCreditCard = (cardData: Omit<CreditCard, 'id'>) => {
     StorageEngine.saveCreditCard(cardData);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleDeleteCreditCard = (id: string) => {
@@ -429,14 +429,14 @@ export default function App() {
   }) => {
     StorageEngine.createInstallmentPurchase(planData);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   // --- HANDLERS FOR BUDGETS ---
   const handleSaveMonthlyBudget = (monthYear: string, overallAmount: number) => {
     StorageEngine.saveMonthlyBudget(monthYear, overallAmount);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleSaveCategoryBudget = (
@@ -446,13 +446,13 @@ export default function App() {
   ) => {
     StorageEngine.saveCategoryBudget(monthYear, categoryId, amount);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleDeleteCategoryBudget = (id: string) => {
     StorageEngine.deleteCategoryBudget(id);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   // --- CONFIRM DELETE EXECUTION ---
@@ -471,20 +471,20 @@ export default function App() {
 
     setDeleteTarget(null);
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   // --- SETTINGS HANDLERS ---
   const handleResetSampleData = () => {
     StorageEngine.resetToSampleData();
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   const handleClearAllData = () => {
     StorageEngine.clearAllData();
     reloadData();
-    syncWithNeon();
+    syncWithSqlite();
   };
 
   // Handle Login & Logout

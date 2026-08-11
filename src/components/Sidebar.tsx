@@ -140,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
           <div className="text-center text-[#d1ebd1]">
             <p className="font-semibold text-[#f0f9ef]">Sistema Financeiro BRL</p>
-            <p className="text-[10px] mt-0.5 text-[#b1dea9]/90">Nuvem Neon PostgreSQL Conectada</p>
+            <p className="text-[10px] mt-0.5 text-[#b1dea9]/90">Banco de Dados SQLite Conectado</p>
           </div>
         </div>
       </aside>

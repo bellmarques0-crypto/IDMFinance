@@ -120,7 +120,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           Configurações do Sistema
         </h2>
         <p className="text-xs md:text-sm text-slate-500 font-medium">
-          Gerencie seu perfil de usuário, segurança, banco de dados Neon PostgreSQL e dados locais.
+          Gerencie seu perfil de usuário, segurança, banco de dados SQLite e dados do sistema.
         </p>
       </div>
 
