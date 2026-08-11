@@ -3,29 +3,16 @@ dotenv.config();
 
 import express, { Router } from 'express';
 import cors from 'cors';
-import { checkNeonConnection, initNeonTables, getNeonSql } from '../db/neonService';
-
-function getDbUrlFromReq(req: express.Request): string | undefined {
-  const bodyUrl = req.body?.connectionString ? String(req.body.connectionString).trim() : '';
-  if (bodyUrl && bodyUrl !== 'undefined' && bodyUrl !== 'null') return bodyUrl;
-
-  const queryUrl = req.query?.connectionString ? String(req.query.connectionString).trim() : '';
-  if (queryUrl && queryUrl !== 'undefined' && queryUrl !== 'null') return queryUrl;
-
-  const headerUrl = req.headers['x-database-url'] as string;
-  if (headerUrl && headerUrl.trim() && headerUrl !== 'undefined' && headerUrl !== 'null') return headerUrl.trim();
-
-  return process.env.DATABASE_URL;
-}
+import { getSqliteDb, initSqliteTables, checkSqliteConnection } from '../db/sqliteService';
 
 export function createApiApp() {
   const app = express();
 
-  // Enable CORS for all origins (Vercel frontend -> API calls)
+  // Enable CORS for all origins
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
 
-  // Prevent API caching issues
+  // Prevent API caching
   app.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -40,34 +27,32 @@ export function createApiApp() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
-  // DB Status Check (Supports GET and POST)
+  // DB Status Check
   router.all('/db/status', async (req, res) => {
-    const dbUrl = getDbUrlFromReq(req);
     try {
-      const status = await checkNeonConnection(dbUrl);
+      const status = await checkSqliteConnection();
       res.json({
-        configured: Boolean(dbUrl),
+        configured: true,
         ...status,
       });
     } catch (err: any) {
       console.error('Error checking DB status:', err);
       res.json({
-        configured: Boolean(dbUrl),
+        configured: true,
         connected: false,
-        message: err.message || 'Erro ao conectar ao banco de dados Neon.',
+        message: err.message || 'Erro ao conectar ao banco de dados SQLite.',
       });
     }
   });
 
-  // DB Init Tables (Supports POST)
+  // DB Init Tables
   router.all('/db/init', async (req, res) => {
-    const dbUrl = getDbUrlFromReq(req);
     try {
-      const success = await initNeonTables(dbUrl);
+      const success = await initSqliteTables();
       if (success) {
-        res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no Neon PostgreSQL!' });
+        res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no SQLite!' });
       } else {
-        res.json({ success: false, message: 'Erro ao inicializar tabelas no Neon. Verifique a URL e tente novamente.' });
+        res.json({ success: false, message: 'Erro ao inicializar tabelas no SQLite.' });
       }
     } catch (err: any) {
       console.error('Error initializing tables:', err);
@@ -75,26 +60,97 @@ export function createApiApp() {
     }
   });
 
-  // Sync / Bulk Get (Supports GET and POST)
+  // Bulk Get Data
   router.all('/db/data', async (req, res) => {
-    const dbUrl = getDbUrlFromReq(req);
-    const sql = getNeonSql(dbUrl);
-    if (!sql) {
-      return res.status(400).json({ error: 'DATABASE_URL não configurada' });
-    }
-
     try {
-      await initNeonTables(dbUrl);
+      await initSqliteTables();
+      const db = getSqliteDb();
 
-      const [categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets] = await Promise.all([
-        sql`SELECT * FROM categories;`,
-        sql`SELECT * FROM transactions;`,
-        sql`SELECT * FROM recurring_expenses;`,
-        sql`SELECT * FROM credit_cards;`,
-        sql`SELECT * FROM installment_plans;`,
-        sql`SELECT * FROM monthly_budgets;`,
-        sql`SELECT * FROM category_budgets;`,
+      const [catsRes, txsRes, recRes, cardsRes, plansRes, mbRes, cbRes] = await Promise.all([
+        db.execute('SELECT * FROM categories;'),
+        db.execute('SELECT * FROM transactions;'),
+        db.execute('SELECT * FROM recurring_expenses;'),
+        db.execute('SELECT * FROM credit_cards;'),
+        db.execute('SELECT * FROM installment_plans;'),
+        db.execute('SELECT * FROM monthly_budgets;'),
+        db.execute('SELECT * FROM category_budgets;'),
       ]);
+
+      const categories = catsRes.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        group: row.group_name,
+        groupName: row.group_name,
+        isDefault: Boolean(row.is_default),
+        active: Boolean(row.active),
+      }));
+
+      const transactions = txsRes.rows.map((row: any) => ({
+        id: row.id,
+        type: row.type,
+        date: row.date,
+        description: row.description,
+        categoryId: row.category_id,
+        amount: Number(row.amount),
+        expenseType: row.expense_type,
+        paymentMethod: row.payment_method,
+        creditCardId: row.credit_card_id,
+        notes: row.notes,
+        recurrence: row.recurrence,
+        installmentPlanId: row.installment_plan_id,
+        currentInstallment: row.current_installment ? Number(row.current_installment) : undefined,
+        totalInstallments: row.total_installments ? Number(row.total_installments) : undefined,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+
+      const recurring = recRes.rows.map((row: any) => ({
+        id: row.id,
+        description: row.description,
+        categoryId: row.category_id,
+        amount: Number(row.amount),
+        dueDay: Number(row.due_day),
+        frequency: row.frequency,
+        paymentMethod: row.payment_method,
+        expenseType: row.expense_type,
+        active: Boolean(row.active),
+        createdAt: row.created_at,
+      }));
+
+      const creditCards = cardsRes.rows.map((row: any) => ({
+        id: row.id,
+        name: row.name,
+        closingDay: Number(row.closing_day),
+        dueDay: Number(row.due_day),
+        limitAmount: Number(row.limit_amount),
+      }));
+
+      const installmentPlans = plansRes.rows.map((row: any) => ({
+        id: row.id,
+        description: row.description,
+        creditCardId: row.credit_card_id,
+        categoryId: row.category_id,
+        purchaseDate: row.purchase_date,
+        totalAmount: Number(row.total_amount),
+        installments: Number(row.installments),
+        installmentAmount: Number(row.installment_amount),
+        expenseType: row.expense_type,
+        createdAt: row.created_at,
+      }));
+
+      const monthlyBudgets = mbRes.rows.map((row: any) => ({
+        id: row.id,
+        monthYear: row.month_year,
+        overallAmount: Number(row.overall_amount),
+      }));
+
+      const categoryBudgets = cbRes.rows.map((row: any) => ({
+        id: row.id,
+        monthYear: row.month_year,
+        categoryId: row.category_id,
+        amount: Number(row.amount),
+      }));
 
       res.json({
         categories,
@@ -106,151 +162,208 @@ export function createApiApp() {
         categoryBudgets,
       });
     } catch (err: any) {
-      console.error('Error fetching data from Neon:', err);
-      res.status(500).json({ error: err.message || 'Erro ao buscar dados do Neon' });
+      console.error('Error fetching data from SQLite:', err);
+      res.status(500).json({ error: err.message || 'Erro ao buscar dados do SQLite' });
     }
   });
 
-  // Bulk Save / Import to Neon
+  // Bulk Save / Sync to SQLite
   router.post('/db/sync', async (req, res) => {
-    const dbUrl = getDbUrlFromReq(req);
-    const sql = getNeonSql(dbUrl);
-    if (!sql) {
-      return res.status(400).json({ error: 'DATABASE_URL não configurada' });
-    }
-
     const { categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets } = req.body || {};
 
     try {
-      await initNeonTables(dbUrl);
+      await initSqliteTables();
+      const db = getSqliteDb();
 
       if (Array.isArray(categories)) {
         for (const cat of categories) {
-          await sql`
-            INSERT INTO categories (id, name, type, group_name, is_default, active)
-            VALUES (${cat.id}, ${cat.name}, ${cat.type}, ${cat.group || cat.groupName || null}, ${cat.isDefault || false}, ${cat.active !== false})
-            ON CONFLICT (id) DO UPDATE SET
-              name = EXCLUDED.name,
-              type = EXCLUDED.type,
-              group_name = EXCLUDED.group_name,
-              active = EXCLUDED.active;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO categories (id, name, type, group_name, is_default, active)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                type = excluded.type,
+                group_name = excluded.group_name,
+                active = excluded.active;
+            `,
+            args: [
+              cat.id,
+              cat.name,
+              cat.type,
+              cat.group || cat.groupName || null,
+              cat.isDefault ? 1 : 0,
+              cat.active !== false ? 1 : 0,
+            ],
+          });
         }
       }
 
       if (Array.isArray(transactions)) {
         for (const tx of transactions) {
-          await sql`
-            INSERT INTO transactions (
-              id, type, date, description, category_id, amount, expense_type, payment_method,
-              credit_card_id, notes, recurrence, installment_plan_id, current_installment, total_installments,
-              created_at, updated_at
-            )
-            VALUES (
-              ${tx.id}, ${tx.type}, ${tx.date}, ${tx.description}, ${tx.categoryId}, ${tx.amount},
-              ${tx.expenseType}, ${tx.paymentMethod}, ${tx.creditCardId || null}, ${tx.notes || null},
-              ${tx.recurrence || 'none'}, ${tx.installmentPlanId || null}, ${tx.currentInstallment || null},
-              ${tx.totalInstallments || null}, ${tx.createdAt || tx.date}, ${tx.updatedAt || tx.date}
-            )
-            ON CONFLICT (id) DO UPDATE SET
-              type = EXCLUDED.type,
-              date = EXCLUDED.date,
-              description = EXCLUDED.description,
-              category_id = EXCLUDED.category_id,
-              amount = EXCLUDED.amount,
-              expense_type = EXCLUDED.expense_type,
-              payment_method = EXCLUDED.payment_method,
-              credit_card_id = EXCLUDED.credit_card_id,
-              notes = EXCLUDED.notes,
-              updated_at = EXCLUDED.updated_at;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO transactions (
+                id, type, date, description, category_id, amount, expense_type, payment_method,
+                credit_card_id, notes, recurrence, installment_plan_id, current_installment, total_installments,
+                created_at, updated_at
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                type = excluded.type,
+                date = excluded.date,
+                description = excluded.description,
+                category_id = excluded.category_id,
+                amount = excluded.amount,
+                expense_type = excluded.expense_type,
+                payment_method = excluded.payment_method,
+                credit_card_id = excluded.credit_card_id,
+                notes = excluded.notes,
+                updated_at = excluded.updated_at;
+            `,
+            args: [
+              tx.id,
+              tx.type,
+              tx.date,
+              tx.description,
+              tx.categoryId,
+              tx.amount,
+              tx.expenseType,
+              tx.paymentMethod,
+              tx.creditCardId || null,
+              tx.notes || null,
+              tx.recurrence || 'none',
+              tx.installmentPlanId || null,
+              tx.currentInstallment || null,
+              tx.totalInstallments || null,
+              tx.createdAt || tx.date,
+              tx.updatedAt || tx.date,
+            ],
+          });
         }
       }
 
       if (Array.isArray(creditCards)) {
         for (const card of creditCards) {
-          await sql`
-            INSERT INTO credit_cards (id, name, closing_day, due_day, limit_amount)
-            VALUES (${card.id}, ${card.name}, ${card.closingDay}, ${card.dueDay}, ${card.limitAmount})
-            ON CONFLICT (id) DO UPDATE SET
-              name = EXCLUDED.name,
-              closing_day = EXCLUDED.closing_day,
-              due_day = EXCLUDED.due_day,
-              limit_amount = EXCLUDED.limit_amount;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO credit_cards (id, name, closing_day, due_day, limit_amount)
+              VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                closing_day = excluded.closing_day,
+                due_day = excluded.due_day,
+                limit_amount = excluded.limit_amount;
+            `,
+            args: [card.id, card.name, card.closingDay, card.dueDay, card.limitAmount],
+          });
         }
       }
 
       if (Array.isArray(recurring)) {
         for (const rec of recurring) {
-          await sql`
-            INSERT INTO recurring_expenses (id, description, category_id, amount, due_day, frequency, payment_method, expense_type, active, created_at)
-            VALUES (${rec.id}, ${rec.description}, ${rec.categoryId}, ${rec.amount}, ${rec.dueDay}, ${rec.frequency}, ${rec.paymentMethod}, ${rec.expenseType}, ${rec.active !== false}, ${rec.createdAt || new Date().toISOString()})
-            ON CONFLICT (id) DO UPDATE SET
-              description = EXCLUDED.description,
-              category_id = EXCLUDED.category_id,
-              amount = EXCLUDED.amount,
-              due_day = EXCLUDED.due_day,
-              frequency = EXCLUDED.frequency,
-              payment_method = EXCLUDED.payment_method,
-              expense_type = EXCLUDED.expense_type,
-              active = EXCLUDED.active;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO recurring_expenses (id, description, category_id, amount, due_day, frequency, payment_method, expense_type, active, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                description = excluded.description,
+                category_id = excluded.category_id,
+                amount = excluded.amount,
+                due_day = excluded.due_day,
+                frequency = excluded.frequency,
+                payment_method = excluded.payment_method,
+                expense_type = excluded.expense_type,
+                active = excluded.active;
+            `,
+            args: [
+              rec.id,
+              rec.description,
+              rec.categoryId,
+              rec.amount,
+              rec.dueDay,
+              rec.frequency,
+              rec.paymentMethod,
+              rec.expenseType,
+              rec.active !== false ? 1 : 0,
+              rec.createdAt || new Date().toISOString(),
+            ],
+          });
         }
       }
 
       if (Array.isArray(installmentPlans)) {
         for (const plan of installmentPlans) {
-          await sql`
-            INSERT INTO installment_plans (id, description, credit_card_id, category_id, purchase_date, total_amount, installments, installment_amount, expense_type, created_at)
-            VALUES (${plan.id}, ${plan.description}, ${plan.creditCardId || null}, ${plan.categoryId}, ${plan.purchaseDate}, ${plan.totalAmount}, ${plan.installments}, ${plan.installmentAmount}, ${plan.expenseType}, ${plan.createdAt || new Date().toISOString()})
-            ON CONFLICT (id) DO UPDATE SET
-              description = EXCLUDED.description,
-              credit_card_id = EXCLUDED.credit_card_id,
-              category_id = EXCLUDED.category_id,
-              purchase_date = EXCLUDED.purchase_date,
-              total_amount = EXCLUDED.total_amount,
-              installments = EXCLUDED.installments,
-              installment_amount = EXCLUDED.installment_amount,
-              expense_type = EXCLUDED.expense_type;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO installment_plans (id, description, credit_card_id, category_id, purchase_date, total_amount, installments, installment_amount, expense_type, created_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                description = excluded.description,
+                credit_card_id = excluded.credit_card_id,
+                category_id = excluded.category_id,
+                purchase_date = excluded.purchase_date,
+                total_amount = excluded.total_amount,
+                installments = excluded.installments,
+                installment_amount = excluded.installment_amount,
+                expense_type = excluded.expense_type;
+            `,
+            args: [
+              plan.id,
+              plan.description,
+              plan.creditCardId || null,
+              plan.categoryId,
+              plan.purchaseDate,
+              plan.totalAmount,
+              plan.installments,
+              plan.installmentAmount,
+              plan.expenseType,
+              plan.createdAt || new Date().toISOString(),
+            ],
+          });
         }
       }
 
       if (Array.isArray(monthlyBudgets)) {
         for (const mb of monthlyBudgets) {
-          await sql`
-            INSERT INTO monthly_budgets (id, month_year, overall_amount)
-            VALUES (${mb.id}, ${mb.monthYear}, ${mb.overallAmount})
-            ON CONFLICT (id) DO UPDATE SET
-              overall_amount = EXCLUDED.overall_amount;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO monthly_budgets (id, month_year, overall_amount)
+              VALUES (?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                overall_amount = excluded.overall_amount;
+            `,
+            args: [mb.id, mb.monthYear, mb.overallAmount],
+          });
         }
       }
 
       if (Array.isArray(categoryBudgets)) {
         for (const cb of categoryBudgets) {
-          await sql`
-            INSERT INTO category_budgets (id, month_year, category_id, amount)
-            VALUES (${cb.id}, ${cb.monthYear}, ${cb.categoryId}, ${cb.amount})
-            ON CONFLICT (id) DO UPDATE SET
-              amount = EXCLUDED.amount;
-          `;
+          await db.execute({
+            sql: `
+              INSERT INTO category_budgets (id, month_year, category_id, amount)
+              VALUES (?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                amount = excluded.amount;
+            `,
+            args: [cb.id, cb.monthYear, cb.categoryId, cb.amount],
+          });
         }
       }
 
-      res.json({ success: true, message: 'Dados sincronizados com o Neon PostgreSQL com sucesso!' });
+      res.json({ success: true, message: 'Dados sincronizados com o SQLite com sucesso!' });
     } catch (err: any) {
-      console.error('Error syncing data to Neon:', err);
-      res.status(500).json({ error: err.message || 'Erro ao sincronizar dados com o Neon' });
+      console.error('Error syncing data to SQLite:', err);
+      res.status(500).json({ error: err.message || 'Erro ao sincronizar dados com o SQLite' });
     }
   });
 
-  // Mount API router under /api AND root / to support both local and Vercel serverless routes
+  // Mount API router
   app.use('/api', router);
   app.use('/', router);
 
-  // Global error handler for Express
+  // Global error handler
   app.use((err: any, req: any, res: any, next: any) => {
     console.error('Unhandled API error:', err);
     res.status(500).json({ error: err?.message || 'Internal Server Error' });
