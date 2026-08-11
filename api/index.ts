@@ -5,5 +5,8 @@ import { createApiApp } from '../src/server/apiApp';
 
 const app = createApiApp();
 
-export default app;
+export default function handler(req: any, res: any) {
+  return app(req, res);
+}
+
 

@@ -150,5 +150,11 @@ export function createApiApp() {
   app.use('/api', router);
   app.use('/', router);
 
+  // Global error handler for Express
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('Unhandled API error:', err);
+    res.status(500).json({ error: err?.message || 'Internal Server Error' });
+  });
+
   return app;
 }
