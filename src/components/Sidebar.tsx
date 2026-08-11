@@ -11,7 +11,6 @@ import {
   Settings,
   Wallet,
   X,
-  LogOut,
   User,
 } from 'lucide-react';
 import { NavigationTab } from '../types';
@@ -22,7 +21,6 @@ interface SidebarProps {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   currentUser?: string;
-  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -31,7 +29,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isMobileOpen,
   onCloseMobile,
   currentUser,
-  onLogout,
 }) => {
   const navItems: { id: NavigationTab; label: string; icon: React.ElementType }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -117,25 +114,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* User badge & Footer info */}
         <div className="p-4 border-t border-[#5e805a]/70 bg-black/10 text-xs space-y-3">
           {currentUser && (
-            <div className="flex items-center justify-between p-2.5 bg-[#3a5238]/90 rounded-xl border border-[#6b8f68]/60">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <div className="w-7 h-7 rounded-lg bg-[#537350] text-[#cbf0c7] flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4" />
-                </div>
-                <div className="truncate">
-                  <p className="text-xs font-bold text-white truncate">{currentUser}</p>
-                  <p className="text-[10px] text-[#b1dea9]">Carteira Ativa</p>
-                </div>
+            <div className="flex items-center gap-2 p-2.5 bg-[#3a5238]/90 rounded-xl border border-[#6b8f68]/60">
+              <div className="w-7 h-7 rounded-lg bg-[#537350] text-[#cbf0c7] flex items-center justify-center shrink-0">
+                <User className="w-4 h-4" />
               </div>
-              {onLogout && (
-                <button
-                  onClick={onLogout}
-                  title="Sair da Carteira"
-                  className="p-1.5 text-rose-200 hover:text-white hover:bg-rose-900/50 rounded-lg transition shrink-0"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              )}
+              <div className="truncate">
+                <p className="text-xs font-bold text-white truncate">{currentUser}</p>
+                <p className="text-[10px] text-[#b1dea9]">Carteira Ativa</p>
+              </div>
             </div>
           )}
           <div className="text-center text-[#d1ebd1]">

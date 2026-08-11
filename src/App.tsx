@@ -30,11 +30,10 @@ import { CategoryModal } from './components/Modals/CategoryModal';
 import { CreditCardModal } from './components/Modals/CreditCardModal';
 import { InstallmentModal } from './components/Modals/InstallmentModal';
 import { ConfirmDeleteModal } from './components/Modals/ConfirmDeleteModal';
-import { LoginScreen } from './components/LoginScreen';
 
 export default function App() {
-  // Authentication State
-  const [currentUser, setCurrentUser] = useState<string | null>(() => localStorage.getItem('idm_user'));
+  // User Profile Name State
+  const [currentUser, setCurrentUser] = useState<string>(() => localStorage.getItem('idm_user') || 'Izabel');
 
   // Current active navigation tab
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
@@ -487,23 +486,14 @@ export default function App() {
     syncWithSqlite();
   };
 
-  // Handle Login & Logout
-  const handleLogin = (user: string) => {
+  // Handle User Profile Update
+  const handleUpdateUser = (user: string) => {
     localStorage.setItem('idm_user', user);
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('idm_user');
-    setCurrentUser(null);
-  };
-
   // Find monthly budget for selected month
   const currentMonthlyBudget = monthlyBudgets.find((b) => b.monthYear === selectedMonthYear);
-
-  if (!currentUser) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
 
   return (
     <div className="min-h-screen bg-[#F8FAF9] flex text-slate-800 antialiased font-sans">
@@ -514,7 +504,6 @@ export default function App() {
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         currentUser={currentUser}
-        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
@@ -621,8 +610,7 @@ export default function App() {
               onResetSampleData={handleResetSampleData}
               onClearAllData={handleClearAllData}
               currentUser={currentUser}
-              onUpdateUser={handleLogin}
-              onLogout={handleLogout}
+              onUpdateUser={handleUpdateUser}
             />
           )}
         </main>
