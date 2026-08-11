@@ -43,6 +43,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setLoadingDb(true);
     try {
       const res = await fetch('/api/db/status');
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Servidor respondeu com formato inválido (HTTP ${res.status}). Verifique as variáveis de ambiente no servidor.`);
+      }
       const data = await res.json();
       setDbStatus(data);
       return data;
@@ -50,7 +54,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const errorObj = {
         configured: false,
         connected: false,
-        message: `Erro ao comunicar com o servidor: ${err?.message || 'Falha de conexão'}`,
+        message: err?.message || 'Erro ao comunicar com o servidor.',
       };
       setDbStatus(errorObj);
       return errorObj;
@@ -68,6 +72,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSyncMessage(null);
     try {
       const res = await fetch('/api/db/init', { method: 'POST' });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(`Servidor respondeu com formato inválido (HTTP ${res.status}).`);
+      }
       const data = await res.json();
       if (data.success) {
         setSyncMessage('Tabelas no Neon verificadas e prontas com sucesso!');

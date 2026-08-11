@@ -106,7 +106,8 @@ export default function App() {
     // Try fetching from Neon Cloud first
     try {
       const res = await fetch('/api/db/data');
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const cloudData = await res.json();
         if (cloudData.transactions && Array.isArray(cloudData.transactions)) {
           // If cloud data exists, update memory state
