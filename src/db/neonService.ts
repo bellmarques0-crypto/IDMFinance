@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { neon } from '@neondatabase/serverless';
 
 export function getNeonSql(connectionString?: string) {

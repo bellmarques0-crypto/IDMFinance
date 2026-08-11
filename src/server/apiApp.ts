@@ -1,12 +1,20 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Router } from 'express';
 import cors from 'cors';
 import { checkNeonConnection, initNeonTables, getNeonSql } from '../db/neonService';
 
 function getDbUrlFromReq(req: express.Request): string | undefined {
   const headerUrl = req.headers['x-database-url'] as string;
-  if (headerUrl && headerUrl.trim()) return headerUrl.trim();
-  if (req.query.connectionString) return String(req.query.connectionString).trim();
-  if (req.body?.connectionString) return String(req.body.connectionString).trim();
+  if (headerUrl && headerUrl.trim() && headerUrl !== 'undefined' && headerUrl !== 'null') return headerUrl.trim();
+  
+  const queryUrl = req.query.connectionString ? String(req.query.connectionString).trim() : '';
+  if (queryUrl && queryUrl !== 'undefined' && queryUrl !== 'null') return queryUrl;
+  
+  const bodyUrl = req.body?.connectionString ? String(req.body.connectionString).trim() : '';
+  if (bodyUrl && bodyUrl !== 'undefined' && bodyUrl !== 'null') return bodyUrl;
+
   return process.env.DATABASE_URL;
 }
 
@@ -16,6 +24,14 @@ export function createApiApp() {
   // Enable CORS for all origins (Vercel frontend -> API calls)
   app.use(cors());
   app.use(express.json({ limit: '10mb' }));
+
+  // Prevent API caching issues
+  app.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
 
   const router = Router();
 
@@ -35,7 +51,7 @@ export function createApiApp() {
       });
     } catch (err: any) {
       console.error('Error checking DB status:', err);
-      res.status(500).json({
+      res.json({
         configured: Boolean(dbUrl),
         connected: false,
         message: err.message || 'Erro ao conectar ao banco de dados Neon.',
@@ -51,11 +67,11 @@ export function createApiApp() {
       if (success) {
         res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no Neon PostgreSQL!' });
       } else {
-        res.status(500).json({ success: false, message: 'Erro ao inicializar tabelas no Neon.' });
+        res.json({ success: false, message: 'Erro ao inicializar tabelas no Neon. Verifique a URL e tente novamente.' });
       }
     } catch (err: any) {
       console.error('Error initializing tables:', err);
-      res.status(500).json({ success: false, message: err.message || 'Erro ao inicializar tabelas.' });
+      res.json({ success: false, message: err.message || 'Erro ao inicializar tabelas.' });
     }
   });
 
