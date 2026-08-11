@@ -2,6 +2,14 @@ import express, { Router } from 'express';
 import cors from 'cors';
 import { checkNeonConnection, initNeonTables, getNeonSql } from '../db/neonService';
 
+function getDbUrlFromReq(req: express.Request): string | undefined {
+  const headerUrl = req.headers['x-database-url'] as string;
+  if (headerUrl && headerUrl.trim()) return headerUrl.trim();
+  if (req.query.connectionString) return String(req.query.connectionString).trim();
+  if (req.body?.connectionString) return String(req.body.connectionString).trim();
+  return process.env.DATABASE_URL;
+}
+
 export function createApiApp() {
   const app = express();
 
@@ -18,16 +26,17 @@ export function createApiApp() {
 
   // DB Status Check
   router.get('/db/status', async (req, res) => {
+    const dbUrl = getDbUrlFromReq(req);
     try {
-      const status = await checkNeonConnection();
+      const status = await checkNeonConnection(dbUrl);
       res.json({
-        configured: Boolean(process.env.DATABASE_URL),
+        configured: Boolean(dbUrl),
         ...status,
       });
     } catch (err: any) {
       console.error('Error checking DB status:', err);
       res.status(500).json({
-        configured: Boolean(process.env.DATABASE_URL),
+        configured: Boolean(dbUrl),
         connected: false,
         message: err.message || 'Erro ao conectar ao banco de dados Neon.',
       });
@@ -36,8 +45,9 @@ export function createApiApp() {
 
   // DB Init Tables
   router.post('/db/init', async (req, res) => {
+    const dbUrl = getDbUrlFromReq(req);
     try {
-      const success = await initNeonTables();
+      const success = await initNeonTables(dbUrl);
       if (success) {
         res.json({ success: true, message: 'Tabelas criadas/verificadas com sucesso no Neon PostgreSQL!' });
       } else {
@@ -51,13 +61,14 @@ export function createApiApp() {
 
   // Sync / Bulk Get
   router.get('/db/data', async (req, res) => {
-    const sql = getNeonSql();
+    const dbUrl = getDbUrlFromReq(req);
+    const sql = getNeonSql(dbUrl);
     if (!sql) {
       return res.status(400).json({ error: 'DATABASE_URL não configurada' });
     }
 
     try {
-      await initNeonTables();
+      await initNeonTables(dbUrl);
 
       const [categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets] = await Promise.all([
         sql`SELECT * FROM categories;`,
@@ -86,7 +97,8 @@ export function createApiApp() {
 
   // Bulk Save / Import to Neon
   router.post('/db/sync', async (req, res) => {
-    const sql = getNeonSql();
+    const dbUrl = getDbUrlFromReq(req);
+    const sql = getNeonSql(dbUrl);
     if (!sql) {
       return res.status(400).json({ error: 'DATABASE_URL não configurada' });
     }
@@ -94,7 +106,7 @@ export function createApiApp() {
     const { categories, transactions, recurring, creditCards, installmentPlans, monthlyBudgets, categoryBudgets } = req.body || {};
 
     try {
-      await initNeonTables();
+      await initNeonTables(dbUrl);
 
       if (Array.isArray(categories)) {
         for (const cat of categories) {

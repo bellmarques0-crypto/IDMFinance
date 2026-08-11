@@ -1,10 +1,11 @@
 import { neon } from '@neondatabase/serverless';
 
 export function getNeonSql(connectionString?: string) {
-  const dbUrl = connectionString || process.env.DATABASE_URL;
-  if (!dbUrl || dbUrl.trim() === '') {
+  let dbUrl = connectionString || process.env.DATABASE_URL;
+  if (!dbUrl || typeof dbUrl !== 'string' || dbUrl.trim() === '') {
     return null;
   }
+  dbUrl = dbUrl.trim().replace(/^["']|["']$/g, '');
   try {
     return neon(dbUrl);
   } catch (error) {
@@ -18,11 +19,18 @@ export async function checkNeonConnection(connectionString?: string): Promise<{
   message: string;
   version?: string;
 }> {
+  if (connectionString && (!connectionString.startsWith('postgres://') && !connectionString.startsWith('postgresql://'))) {
+    return {
+      connected: false,
+      message: 'URL de conexão inválida. A URL do Neon deve começar com "postgresql://" ou "postgres://".',
+    };
+  }
+
   const sql = getNeonSql(connectionString);
   if (!sql) {
     return {
       connected: false,
-      message: 'DATABASE_URL não configurada. Defina a variável de ambiente DATABASE_URL com sua string de conexão do Neon.',
+      message: 'DATABASE_URL não informada. Cole sua URL de conexão do Neon no campo abaixo.',
     };
   }
 
@@ -36,9 +44,17 @@ export async function checkNeonConnection(connectionString?: string): Promise<{
     };
   } catch (err: any) {
     console.error('Error connecting to Neon DB:', err);
+    let msg = err.message || 'Erro ao conectar ao Neon PostgreSQL.';
+    if (msg.includes('is not a valid URL')) {
+      msg = 'String de conexão inválida. Copie a URL completa do painel do Neon (ex: postgresql://usuario:senha@ep-xyz.us-east-2.aws.neon.tech/neondb?sslmode=require).';
+    } else if (msg.includes('FetchError') || msg.includes('Failed to fetch') || msg.includes('ENOTFOUND')) {
+      msg = 'Não foi possível alcançar o servidor do Neon. Verifique se o host está correto e se o projeto Neon está ativo.';
+    } else if (msg.includes('password authentication failed') || msg.includes('Auth') || msg.includes('FATAL')) {
+      msg = 'Falha de autenticação no Neon. Verifique o usuário e a senha na URL.';
+    }
     return {
       connected: false,
-      message: err.message || 'Erro ao conectar ao Neon PostgreSQL.',
+      message: msg,
     };
   }
 }

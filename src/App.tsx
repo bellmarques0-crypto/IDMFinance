@@ -90,9 +90,13 @@ export default function App() {
         categoryBudgets: StorageEngine.getCategoryBudgets(selectedMonthYear),
       };
 
+      const dbUrl = localStorage.getItem('neon_db_url') || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (dbUrl) headers['X-Database-Url'] = dbUrl;
+
       await fetch('/api/db/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
     } catch (err) {
@@ -105,7 +109,11 @@ export default function App() {
 
     // Try fetching from Neon Cloud first
     try {
-      const res = await fetch('/api/db/data');
+      const dbUrl = localStorage.getItem('neon_db_url') || '';
+      const headers: Record<string, string> = {};
+      if (dbUrl) headers['X-Database-Url'] = dbUrl;
+
+      const res = await fetch('/api/db/data', { headers });
       if (res.ok) {
         const cloudData = await res.json();
         if (cloudData.transactions && Array.isArray(cloudData.transactions)) {
