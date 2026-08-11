@@ -167,6 +167,78 @@ export function createApiApp() {
         }
       }
 
+      if (Array.isArray(creditCards)) {
+        for (const card of creditCards) {
+          await sql`
+            INSERT INTO credit_cards (id, name, closing_day, due_day, limit_amount)
+            VALUES (${card.id}, ${card.name}, ${card.closingDay}, ${card.dueDay}, ${card.limitAmount})
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              closing_day = EXCLUDED.closing_day,
+              due_day = EXCLUDED.due_day,
+              limit_amount = EXCLUDED.limit_amount;
+          `;
+        }
+      }
+
+      if (Array.isArray(recurring)) {
+        for (const rec of recurring) {
+          await sql`
+            INSERT INTO recurring_expenses (id, description, category_id, amount, due_day, frequency, payment_method, expense_type, active, created_at)
+            VALUES (${rec.id}, ${rec.description}, ${rec.categoryId}, ${rec.amount}, ${rec.dueDay}, ${rec.frequency}, ${rec.paymentMethod}, ${rec.expenseType}, ${rec.active !== false}, ${rec.createdAt || new Date().toISOString()})
+            ON CONFLICT (id) DO UPDATE SET
+              description = EXCLUDED.description,
+              category_id = EXCLUDED.category_id,
+              amount = EXCLUDED.amount,
+              due_day = EXCLUDED.due_day,
+              frequency = EXCLUDED.frequency,
+              payment_method = EXCLUDED.payment_method,
+              expense_type = EXCLUDED.expense_type,
+              active = EXCLUDED.active;
+          `;
+        }
+      }
+
+      if (Array.isArray(installmentPlans)) {
+        for (const plan of installmentPlans) {
+          await sql`
+            INSERT INTO installment_plans (id, description, credit_card_id, category_id, purchase_date, total_amount, installments, installment_amount, expense_type, created_at)
+            VALUES (${plan.id}, ${plan.description}, ${plan.creditCardId || null}, ${plan.categoryId}, ${plan.purchaseDate}, ${plan.totalAmount}, ${plan.installments}, ${plan.installmentAmount}, ${plan.expenseType}, ${plan.createdAt || new Date().toISOString()})
+            ON CONFLICT (id) DO UPDATE SET
+              description = EXCLUDED.description,
+              credit_card_id = EXCLUDED.credit_card_id,
+              category_id = EXCLUDED.category_id,
+              purchase_date = EXCLUDED.purchase_date,
+              total_amount = EXCLUDED.total_amount,
+              installments = EXCLUDED.installments,
+              installment_amount = EXCLUDED.installment_amount,
+              expense_type = EXCLUDED.expense_type;
+          `;
+        }
+      }
+
+      if (Array.isArray(monthlyBudgets)) {
+        for (const mb of monthlyBudgets) {
+          await sql`
+            INSERT INTO monthly_budgets (id, month_year, overall_amount)
+            VALUES (${mb.id}, ${mb.monthYear}, ${mb.overallAmount})
+            ON CONFLICT (id) DO UPDATE SET
+              overall_amount = EXCLUDED.overall_amount;
+          `;
+        }
+      }
+
+      if (Array.isArray(categoryBudgets)) {
+        for (const cb of categoryBudgets) {
+          await sql`
+            INSERT INTO category_budgets (id, month_year, category_id, amount)
+            VALUES (${cb.id}, ${cb.monthYear}, ${cb.categoryId}, ${cb.amount})
+            ON CONFLICT (id) DO UPDATE SET
+              amount = EXCLUDED.amount;
+          `;
+        }
+      }
+
       res.json({ success: true, message: 'Dados sincronizados com o Neon PostgreSQL com sucesso!' });
     } catch (err: any) {
       console.error('Error syncing data to Neon:', err);

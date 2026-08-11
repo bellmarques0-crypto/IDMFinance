@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, Database, CheckCircle2, XCircle, Loader2, User, Lock, KeyRound, Save, LogOut, AlertCircle } from 'lucide-react';
+import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, User, Lock, KeyRound, Save, LogOut, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface SettingsViewProps {
   onResetSampleData: () => void;
@@ -16,16 +16,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateUser,
   onLogout,
 }) => {
-  const [dbStatus, setDbStatus] = useState<{
-    configured: boolean;
-    connected: boolean;
-    message: string;
-    version?: string;
-  } | null>(null);
-  const [loadingDb, setLoadingDb] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [syncMessage, setSyncMessage] = useState<string | null>(null);
-
   // User Management State
   const [usernameInput, setUsernameInput] = useState(currentUser || '');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -43,74 +33,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setUsernameInput(currentUser);
     }
   }, [currentUser]);
-
-  const checkDbStatus = async () => {
-    setLoadingDb(true);
-    try {
-      const res = await fetch('/api/db/status');
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch (jsonErr) {
-        // Not valid JSON response
-      }
-
-      if (data && typeof data === 'object') {
-        setDbStatus(data);
-        return data;
-      }
-
-      const errorObj = {
-        configured: false,
-        connected: false,
-        message: `Servidor indisponível ou resposta inválida (HTTP ${res.status}).`,
-      };
-      setDbStatus(errorObj);
-      return errorObj;
-    } catch (err: any) {
-      const errorObj = {
-        configured: false,
-        connected: false,
-        message: err?.message || 'Erro ao comunicar com o servidor.',
-      };
-      setDbStatus(errorObj);
-      return errorObj;
-    } finally {
-      setLoadingDb(false);
-    }
-  };
-
-  useEffect(() => {
-    checkDbStatus();
-  }, []);
-
-  const handleInitTables = async () => {
-    setSyncing(true);
-    setSyncMessage(null);
-    try {
-      const res = await fetch('/api/db/init', {
-        method: 'POST',
-      });
-
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch (jsonErr) {
-        // Not valid JSON
-      }
-
-      if (data && data.success) {
-        setSyncMessage('Tabelas no Neon verificadas e prontas com sucesso!');
-        checkDbStatus();
-      } else {
-        setSyncMessage(`Erro ao inicializar tabelas: ${data?.message || `HTTP ${res.status}`}`);
-      }
-    } catch (err: any) {
-      setSyncMessage(`Erro ao inicializar tabelas: ${err.message}`);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleUpdatePassword = (e: React.FormEvent) => {
     e.preventDefault();
@@ -334,105 +256,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               Atualizar Senha
             </button>
           </form>
-        </div>
-      </div>
-
-      {/* NEON POSTGRESQL CARD */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-xl">
-              <Database className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
-                Neon PostgreSQL Database
-                <span className="text-[10px] uppercase font-mono px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full">
-                  PostgreSQL
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500">
-                Banco de dados relacional em nuvem Serverless
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => checkDbStatus()}
-            disabled={loadingDb}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition"
-          >
-            {loadingDb ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            Testar Conexão
-          </button>
-        </div>
-
-        {/* STATUS BADGE */}
-        {dbStatus && (
-          <div
-            className={`p-4 rounded-xl border flex items-start gap-3 text-xs ${
-              dbStatus.connected
-                ? 'bg-emerald-50 border-emerald-200/80 text-emerald-900'
-                : 'bg-amber-50 border-amber-200/80 text-amber-900'
-            }`}
-          >
-            {dbStatus.connected ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            ) : (
-              <XCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            )}
-            <div className="space-y-1 w-full">
-              <div className="font-bold text-sm flex items-center justify-between gap-2">
-                <span>{dbStatus.connected ? 'Conectado ao Neon PostgreSQL (Servidor)' : 'Pendente de Conexão'}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 bg-white/80 border rounded-md">.env</span>
-              </div>
-              <p className="leading-relaxed">{dbStatus.message}</p>
-              {dbStatus.version && (
-                <p className="font-mono text-[11px] opacity-80 pt-1">Versão: {dbStatus.version}</p>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="text-xs text-slate-600 space-y-2 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <p className="font-semibold text-slate-800">Conexão Segura e Automática (.env):</p>
-          <p>
-            O banco de dados do Neon PostgreSQL está configurado e protegido através do arquivo de variáveis de ambiente <code className="font-mono bg-slate-200 px-1.5 py-0.5 rounded text-slate-800">.env</code> do servidor. Suas credenciais e senhas permanecem totalmente privadas e não são expostas ao navegador.
-          </p>
-        </div>
-
-        <div className="pt-2 flex items-center justify-between gap-3 flex-wrap">
-          <button
-            onClick={() => handleInitTables()}
-            disabled={syncing || !dbStatus?.connected}
-            className="flex items-center gap-2 px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-bold rounded-xl text-xs transition disabled:opacity-50"
-          >
-            {syncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
-            Inicializar / Verificar Estrutura de Tabelas
-          </button>
-          {syncMessage && <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">{syncMessage}</span>}
-        </div>
-      </div>
-
-      {/* STORAGE ENGINE INFO */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
-        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-          <div className="p-2.5 bg-emerald-100 text-emerald-800 rounded-xl">
-            <Database className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="font-bold text-base text-slate-800">Armazenamento em Nuvem Neon PostgreSQL</h3>
-            <p className="text-xs text-slate-500">Persistência direta e segura na nuvem</p>
-          </div>
-        </div>
-
-        <p className="text-xs text-slate-600 leading-relaxed">
-          O aplicativo armazena todas as suas movimentações, cartões, categorias e orçamentos diretamente no banco de dados <code className="bg-slate-100 px-1.5 py-0.5 rounded text-emerald-800 font-mono">Neon PostgreSQL</code> em nuvem.
-        </p>
-
-        <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl text-xs font-semibold text-emerald-900 border border-emerald-200/60">
-          <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-          <span>Privacidade & Segurança: Seus dados financeiros estão armazenados na nuvem no seu banco de dados.</span>
         </div>
       </div>
 

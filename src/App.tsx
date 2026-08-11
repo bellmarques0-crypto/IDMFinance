@@ -109,30 +109,34 @@ export default function App() {
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('application/json')) {
         const cloudData = await res.json();
-        if (cloudData.transactions && Array.isArray(cloudData.transactions)) {
-          // If cloud data exists, update memory state
-          const mappedTxs: Transaction[] = cloudData.transactions.map((t: any) => ({
-            id: t.id,
-            type: t.type,
-            date: typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0],
-            description: t.description,
-            categoryId: t.category_id || t.categoryId,
-            amount: Number(t.amount),
-            expenseType: t.expense_type || t.expenseType || 'variable',
-            paymentMethod: t.payment_method || t.paymentMethod || 'outros',
-            creditCardId: t.credit_card_id || t.creditCardId,
-            notes: t.notes,
-            recurrence: t.recurrence || 'none',
-            installmentPlanId: t.installment_plan_id || t.installmentPlanId,
-            currentInstallment: t.current_installment || t.currentInstallment,
-            totalInstallments: t.total_installments || t.totalInstallments,
-            createdAt: t.created_at || t.createdAt,
-            updatedAt: t.updated_at || t.updatedAt,
-          }));
+        const hasCloudData =
+          (cloudData.transactions && Array.isArray(cloudData.transactions) && cloudData.transactions.length > 0) ||
+          (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0);
 
-          setTransactions(mappedTxs);
+        if (hasCloudData) {
+          if (Array.isArray(cloudData.transactions)) {
+            const mappedTxs: Transaction[] = cloudData.transactions.map((t: any) => ({
+              id: t.id,
+              type: t.type,
+              date: typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0],
+              description: t.description,
+              categoryId: t.category_id || t.categoryId,
+              amount: Number(t.amount),
+              expenseType: t.expense_type || t.expenseType || 'variable',
+              paymentMethod: t.payment_method || t.paymentMethod || 'outros',
+              creditCardId: t.credit_card_id || t.creditCardId,
+              notes: t.notes,
+              recurrence: t.recurrence || 'none',
+              installmentPlanId: t.installment_plan_id || t.installmentPlanId,
+              currentInstallment: t.current_installment || t.currentInstallment,
+              totalInstallments: t.total_installments || t.totalInstallments,
+              createdAt: t.created_at || t.createdAt,
+              updatedAt: t.updated_at || t.updatedAt,
+            }));
+            setTransactions(mappedTxs);
+          }
 
-          if (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
+          if (Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
             const mappedCats: Category[] = cloudData.categories.map((c: any) => ({
               id: c.id,
               name: c.name,
@@ -146,12 +150,108 @@ export default function App() {
             setCategories(StorageEngine.getCategories());
           }
 
-          setRecurringExpenses(StorageEngine.getRecurringExpenses());
+          if (Array.isArray(cloudData.creditCards) && cloudData.creditCards.length > 0) {
+            const mappedCards: CreditCard[] = cloudData.creditCards.map((c: any) => ({
+              id: c.id,
+              name: c.name,
+              closingDay: Number(c.closing_day || c.closingDay),
+              dueDay: Number(c.due_day || c.dueDay),
+              limitAmount: Number(c.limit_amount || c.limitAmount || 0),
+            }));
+            setCreditCards(mappedCards);
+          } else {
+            setCreditCards(StorageEngine.getCreditCards());
+          }
+
+          if (Array.isArray(cloudData.recurring) && cloudData.recurring.length > 0) {
+            const mappedRec: RecurringExpense[] = cloudData.recurring.map((r: any) => ({
+              id: r.id,
+              description: r.description,
+              categoryId: r.category_id || r.categoryId,
+              amount: Number(r.amount),
+              dueDay: Number(r.due_day || r.dueDay),
+              frequency: r.frequency || 'monthly',
+              paymentMethod: r.payment_method || r.paymentMethod,
+              expenseType: r.expense_type || r.expenseType || 'fixed',
+              active: r.active !== false,
+              createdAt: r.created_at || r.createdAt,
+            }));
+            setRecurringExpenses(mappedRec);
+          } else {
+            setRecurringExpenses(StorageEngine.getRecurringExpenses());
+          }
+
+          if (Array.isArray(cloudData.installmentPlans) && cloudData.installmentPlans.length > 0) {
+            const mappedPlans: InstallmentPlan[] = cloudData.installmentPlans.map((p: any) => ({
+              id: p.id,
+              description: p.description,
+              creditCardId: p.credit_card_id || p.creditCardId,
+              categoryId: p.category_id || p.categoryId,
+              purchaseDate: p.purchase_date || p.purchaseDate,
+              totalAmount: Number(p.total_amount || p.totalAmount),
+              installments: Number(p.installments),
+              installmentAmount: Number(p.installment_amount || p.installmentAmount),
+              expenseType: p.expense_type || p.expenseType || 'variable',
+              createdAt: p.created_at || p.createdAt,
+            }));
+            setInstallmentPlans(mappedPlans);
+          } else {
+            setInstallmentPlans(StorageEngine.getInstallmentPlans());
+          }
+
+          if (Array.isArray(cloudData.monthlyBudgets) && cloudData.monthlyBudgets.length > 0) {
+            const mappedMB: MonthlyBudget[] = cloudData.monthlyBudgets.map((m: any) => ({
+              id: m.id,
+              monthYear: m.month_year || m.monthYear,
+              overallAmount: Number(m.overall_amount || m.overallAmount),
+            }));
+            setMonthlyBudgets(mappedMB);
+          } else {
+            setMonthlyBudgets(StorageEngine.getMonthlyBudgets());
+          }
+
+          if (Array.isArray(cloudData.categoryBudgets) && cloudData.categoryBudgets.length > 0) {
+            const mappedCB: CategoryBudget[] = cloudData.categoryBudgets.map((cb: any) => ({
+              id: cb.id,
+              monthYear: cb.month_year || cb.monthYear,
+              categoryId: cb.category_id || cb.categoryId,
+              amount: Number(cb.amount),
+            }));
+            setCategoryBudgets(mappedCB);
+          } else {
+            setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
+          }
+
           setRecurringPayments(StorageEngine.getRecurringPayments());
-          setCreditCards(StorageEngine.getCreditCards());
-          setInstallmentPlans(StorageEngine.getInstallmentPlans());
-          setMonthlyBudgets(StorageEngine.getMonthlyBudgets());
-          setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
+          return;
+        } else {
+          // Cloud database is empty, seed it with sample data
+          const localCats = StorageEngine.getCategories();
+          const localTxs = StorageEngine.getTransactions();
+          const localRec = StorageEngine.getRecurringExpenses();
+          const localCards = StorageEngine.getCreditCards();
+          const localPlans = StorageEngine.getInstallmentPlans();
+          const localMB = StorageEngine.getMonthlyBudgets();
+          const localCB = StorageEngine.getCategoryBudgets(selectedMonthYear);
+
+          setCategories(localCats);
+          setTransactions(localTxs);
+          setRecurringExpenses(localRec);
+          setCreditCards(localCards);
+          setInstallmentPlans(localPlans);
+          setMonthlyBudgets(localMB);
+          setCategoryBudgets(localCB);
+          setRecurringPayments(StorageEngine.getRecurringPayments());
+
+          syncWithNeon({
+            categories: localCats,
+            transactions: localTxs,
+            recurring: localRec,
+            creditCards: localCards,
+            installmentPlans: localPlans,
+            monthlyBudgets: localMB,
+            categoryBudgets: localCB,
+          });
           return;
         }
       }
