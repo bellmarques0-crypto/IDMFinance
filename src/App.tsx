@@ -190,6 +190,17 @@ export default function App() {
     setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
   };
 
+  const updateLocalStateFromStorage = () => {
+    setTransactions(StorageEngine.getTransactions());
+    setCategories(StorageEngine.getCategories());
+    setRecurringExpenses(StorageEngine.getRecurringExpenses());
+    setRecurringPayments(StorageEngine.getRecurringPayments());
+    setCreditCards(StorageEngine.getCreditCards());
+    setInstallmentPlans(StorageEngine.getInstallmentPlans());
+    setMonthlyBudgets(StorageEngine.getMonthlyBudgets());
+    setCategoryBudgets(StorageEngine.getCategoryBudgets(selectedMonthYear));
+  };
+
   useEffect(() => {
     reloadData();
   }, []);
@@ -216,7 +227,7 @@ export default function App() {
     txData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }
   ) => {
     StorageEngine.saveTransaction(txData);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -244,7 +255,7 @@ export default function App() {
     recData: Omit<RecurringExpense, 'id' | 'createdAt'> & { id?: string }
   ) => {
     StorageEngine.saveRecurringExpense(recData);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -264,7 +275,7 @@ export default function App() {
     paidDate: string
   ) => {
     StorageEngine.markRecurringAsPaid(recurringId, monthYear, actualAmount, paidDate);
-    reloadData();
+    updateLocalStateFromStorage();
   };
 
   // --- HANDLERS FOR CATEGORIES ---
@@ -280,7 +291,7 @@ export default function App() {
 
   const handleSaveCategory = (catData: Omit<Category, 'id'> & { id?: string }) => {
     StorageEngine.saveCategory(catData);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -300,7 +311,7 @@ export default function App() {
   // --- HANDLERS FOR CREDIT CARDS & INSTALLMENTS ---
   const handleSaveCreditCard = (cardData: Omit<CreditCard, 'id'>) => {
     StorageEngine.saveCreditCard(cardData);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -324,14 +335,14 @@ export default function App() {
     expenseType: 'fixed' | 'variable';
   }) => {
     StorageEngine.createInstallmentPurchase(planData);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
   // --- HANDLERS FOR BUDGETS ---
   const handleSaveMonthlyBudget = (monthYear: string, overallAmount: number) => {
     StorageEngine.saveMonthlyBudget(monthYear, overallAmount);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -341,13 +352,13 @@ export default function App() {
     amount: number
   ) => {
     StorageEngine.saveCategoryBudget(monthYear, categoryId, amount);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
   const handleDeleteCategoryBudget = (id: string) => {
     StorageEngine.deleteCategoryBudget(id);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
@@ -366,20 +377,20 @@ export default function App() {
     }
 
     setDeleteTarget(null);
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
   // --- SETTINGS HANDLERS ---
   const handleResetSampleData = () => {
     StorageEngine.resetToSampleData();
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
   const handleClearAllData = () => {
     StorageEngine.clearAllData();
-    reloadData();
+    updateLocalStateFromStorage();
     syncWithSqlite();
   };
 
