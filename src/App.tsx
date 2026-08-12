@@ -203,6 +203,38 @@ export default function App() {
 
   useEffect(() => {
     reloadData();
+
+    const unsubscribe = FirestoreService.subscribeToData((cloudData) => {
+      const hasData =
+        (cloudData.transactions && cloudData.transactions.length > 0) ||
+        (cloudData.categories && cloudData.categories.length > 0) ||
+        (cloudData.creditCards && cloudData.creditCards.length > 0);
+
+      if (hasData) {
+        setCategories(cloudData.categories.length > 0 ? cloudData.categories : StorageEngine.getCategories());
+        setTransactions(cloudData.transactions);
+        setRecurringExpenses(cloudData.recurring);
+        setCreditCards(cloudData.creditCards);
+        setInstallmentPlans(cloudData.installmentPlans);
+        setMonthlyBudgets(cloudData.monthlyBudgets);
+        setCategoryBudgets(cloudData.categoryBudgets);
+        setRecurringPayments(cloudData.recurringPayments);
+
+        StorageEngine.setAllData({
+          transactions: cloudData.transactions,
+          categories: cloudData.categories,
+          creditCards: cloudData.creditCards,
+          recurring: cloudData.recurring,
+          installmentPlans: cloudData.installmentPlans,
+          monthlyBudgets: cloudData.monthlyBudgets,
+          categoryBudgets: cloudData.categoryBudgets,
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

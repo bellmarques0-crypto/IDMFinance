@@ -5,6 +5,7 @@ import {
   setDoc,
   deleteDoc,
   writeBatch,
+  onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
@@ -27,6 +28,25 @@ export interface AppCloudData {
   monthlyBudgets: MonthlyBudget[];
   categoryBudgets: CategoryBudget[];
   recurringPayments: RecurringExpensePayment[];
+}
+
+// Remove undefined fields which cause setDoc errors in Firebase SDK
+function cleanForFirestore(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(cleanForFirestore);
+  }
+  if (typeof obj === 'object' && !(obj instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      const val = obj[key];
+      if (val !== undefined) {
+        cleaned[key] = cleanForFirestore(val);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
 }
 
 export const FirestoreService = {
@@ -86,10 +106,59 @@ export const FirestoreService = {
     }
   },
 
+  // Real-time listener for changes across all collections
+  subscribeToData(onUpdate: (data: AppCloudData) => void): () => void {
+    const collections = [
+      'categories',
+      'transactions',
+      'recurringExpenses',
+      'creditCards',
+      'installmentPlans',
+      'monthlyBudgets',
+      'categoryBudgets',
+      'recurringPayments',
+    ];
+
+    const currentData: Partial<AppCloudData> = {};
+
+    const unsubscribes = collections.map((colName) => {
+      return onSnapshot(
+        collection(db, colName),
+        (snapshot) => {
+          const docs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+          if (colName === 'recurringExpenses') {
+            currentData.recurring = docs as RecurringExpense[];
+          } else {
+            (currentData as any)[colName] = docs;
+          }
+
+          onUpdate({
+            categories: currentData.categories || [],
+            transactions: currentData.transactions || [],
+            recurring: currentData.recurring || [],
+            creditCards: currentData.creditCards || [],
+            installmentPlans: currentData.installmentPlans || [],
+            monthlyBudgets: currentData.monthlyBudgets || [],
+            categoryBudgets: currentData.categoryBudgets || [],
+            recurringPayments: currentData.recurringPayments || [],
+          });
+        },
+        (error) => {
+          console.warn(`Realtime listener warning on ${colName}:`, error);
+        }
+      );
+    });
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  },
+
   // Save single items
   async saveDocument(collectionName: string, id: string, data: any): Promise<void> {
     try {
-      await setDoc(doc(db, collectionName, id), data, { merge: true });
+      const cleanData = cleanForFirestore(data);
+      await setDoc(doc(db, collectionName, id), cleanData, { merge: true });
     } catch (err) {
       console.error(`Error saving document to ${collectionName}:`, err);
     }
@@ -111,42 +180,42 @@ export const FirestoreService = {
 
       if (data.categories) {
         data.categories.forEach((item) => {
-          batch.set(doc(db, 'categories', item.id), item, { merge: true });
+          batch.set(doc(db, 'categories', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.transactions) {
         data.transactions.forEach((item) => {
-          batch.set(doc(db, 'transactions', item.id), item, { merge: true });
+          batch.set(doc(db, 'transactions', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.recurring) {
         data.recurring.forEach((item) => {
-          batch.set(doc(db, 'recurringExpenses', item.id), item, { merge: true });
+          batch.set(doc(db, 'recurringExpenses', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.creditCards) {
         data.creditCards.forEach((item) => {
-          batch.set(doc(db, 'creditCards', item.id), item, { merge: true });
+          batch.set(doc(db, 'creditCards', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.installmentPlans) {
         data.installmentPlans.forEach((item) => {
-          batch.set(doc(db, 'installmentPlans', item.id), item, { merge: true });
+          batch.set(doc(db, 'installmentPlans', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.monthlyBudgets) {
         data.monthlyBudgets.forEach((item) => {
-          batch.set(doc(db, 'monthlyBudgets', item.id), item, { merge: true });
+          batch.set(doc(db, 'monthlyBudgets', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.categoryBudgets) {
         data.categoryBudgets.forEach((item) => {
-          batch.set(doc(db, 'categoryBudgets', item.id), item, { merge: true });
+          batch.set(doc(db, 'categoryBudgets', item.id), cleanForFirestore(item), { merge: true });
         });
       }
       if (data.recurringPayments) {
         data.recurringPayments.forEach((item) => {
-          batch.set(doc(db, 'recurringPayments', item.id), item, { merge: true });
+          batch.set(doc(db, 'recurringPayments', item.id), cleanForFirestore(item), { merge: true });
         });
       }
 
