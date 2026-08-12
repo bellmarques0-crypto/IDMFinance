@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, User, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Settings, RefreshCw, Trash2, Download, Upload, ShieldCheck, User, Save, AlertCircle, CheckCircle2, Cloud, Database } from 'lucide-react';
+import { FirestoreService } from '../../services/firestoreService';
 
 interface SettingsViewProps {
   onResetSampleData: () => void;
@@ -17,10 +18,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // User Management State
   const [usernameInput, setUsernameInput] = useState(currentUser || 'Izabel');
   const [userMsg, setUserMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [dbStatus, setDbStatus] = useState<{ connected: boolean; message: string }>({
+    connected: true,
+    message: 'Verificando conexão com Firebase Cloud Firestore...',
+  });
 
-  // Clear any legacy custom URL from localStorage
   useEffect(() => {
     localStorage.removeItem('neon_db_url');
+    FirestoreService.checkConnection().then((res) => {
+      setDbStatus(res);
+    });
   }, []);
 
   useEffect(() => {
@@ -74,6 +81,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <p className="text-xs md:text-sm text-slate-500 font-medium">
           Gerencie seu perfil de usuário, banco de dados SQLite e dados do sistema.
         </p>
+      </div>
+
+      {/* CLOUD DATABASE STATUS CARD */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-emerald-600 to-teal-700 text-white rounded-xl shadow-xs">
+            <Cloud className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-bold text-base text-slate-800 flex items-center gap-2">
+              <span>Banco de Dados na Nuvem (Firebase Cloud Firestore)</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                Ativo
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              Seus dados financeiros estão armazenados com segurança na nuvem do Google Firebase.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-3.5 rounded-xl border bg-emerald-50/70 border-emerald-200 text-emerald-900 text-xs font-medium flex items-center gap-2.5">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{dbStatus.message}</span>
+        </div>
       </div>
 
       {/* USER MANAGEMENT CARD */}

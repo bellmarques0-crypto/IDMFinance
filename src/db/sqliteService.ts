@@ -1,6 +1,9 @@
 import { createClient, Client } from '@libsql/client';
+import fs from 'fs';
+import path from 'path';
 
 let dbInstance: Client | null = null;
+const DB_FILE_PATH = path.resolve(process.cwd(), 'app_database.db');
 
 export function getSqliteDb(): Client {
   if (!dbInstance) {
@@ -11,7 +14,19 @@ export function getSqliteDb(): Client {
   return dbInstance;
 }
 
-export async function initSqliteTables(): Promise<boolean> {
+export function resetSqliteDb(): void {
+  dbInstance = null;
+  if (fs.existsSync(DB_FILE_PATH)) {
+    try {
+      fs.unlinkSync(DB_FILE_PATH);
+      console.log('Corrupted SQLite database file removed successfully.');
+    } catch (e) {
+      console.error('Failed to remove corrupted SQLite file:', e);
+    }
+  }
+}
+
+export async function initSqliteTables(isRetry = false): Promise<boolean> {
   const db = getSqliteDb();
   try {
     await db.execute(`
@@ -104,8 +119,14 @@ export async function initSqliteTables(): Promise<boolean> {
     `);
 
     return true;
-  } catch (err) {
+  } catch (err: any) {
     console.error('Error initializing SQLite tables:', err);
+    const errMsg = String(err?.message || err);
+    if (!isRetry && (errMsg.includes('SQLITE_CORRUPT') || errMsg.includes('malformed'))) {
+      console.warn('SQLite file corrupted. Resetting and re-creating database...');
+      resetSqliteDb();
+      return initSqliteTables(true);
+    }
     return false;
   }
 }

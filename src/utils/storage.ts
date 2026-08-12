@@ -17,6 +17,7 @@ import {
   INITIAL_RECURRING_EXPENSES,
   INITIAL_TRANSACTIONS,
 } from './initialData';
+import { FirestoreService } from '../services/firestoreService';
 
 const KEYS = {
   TRANSACTIONS: 'cfp_transactions_v2',
@@ -66,6 +67,8 @@ export const StorageEngine = {
     if (data.installmentPlans) setItem(KEYS.INSTALLMENT_PLANS, data.installmentPlans);
     if (data.monthlyBudgets) setItem(KEYS.BUDGETS, data.monthlyBudgets);
     if (data.categoryBudgets) setItem(KEYS.CATEGORY_BUDGETS, data.categoryBudgets);
+
+    FirestoreService.syncAllData(data);
   },
 
   // Initialize with seed data if keys don't exist
@@ -118,6 +121,17 @@ export const StorageEngine = {
     setItem(KEYS.BUDGETS, INITIAL_MONTHLY_BUDGETS);
     setItem(KEYS.CATEGORY_BUDGETS, INITIAL_CATEGORY_BUDGETS);
     setItem(KEYS.RECURRING_PAYMENTS, []);
+
+    FirestoreService.syncAllData({
+      categories: DEFAULT_CATEGORIES,
+      transactions: INITIAL_TRANSACTIONS,
+      recurring: INITIAL_RECURRING_EXPENSES,
+      creditCards: INITIAL_CREDIT_CARDS,
+      installmentPlans: INITIAL_INSTALLMENT_PLANS,
+      monthlyBudgets: INITIAL_MONTHLY_BUDGETS,
+      categoryBudgets: INITIAL_CATEGORY_BUDGETS,
+      recurringPayments: [],
+    });
   },
 
   clearAllData() {
@@ -129,6 +143,17 @@ export const StorageEngine = {
     setItem(KEYS.BUDGETS, []);
     setItem(KEYS.CATEGORY_BUDGETS, []);
     setItem(KEYS.RECURRING_PAYMENTS, []);
+
+    FirestoreService.syncAllData({
+      categories: DEFAULT_CATEGORIES,
+      transactions: [],
+      recurring: [],
+      creditCards: [],
+      installmentPlans: [],
+      monthlyBudgets: [],
+      categoryBudgets: [],
+      recurringPayments: [],
+    });
   },
 
   // --- TRANSACTIONS ---
@@ -139,6 +164,7 @@ export const StorageEngine = {
   saveTransaction(tx: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Transaction {
     const list = this.getTransactions();
     const now = new Date().toISOString();
+    let result: Transaction;
 
     if (tx.id) {
       // Edit existing
@@ -152,25 +178,38 @@ export const StorageEngine = {
         };
         list[index] = updated;
         setItem(KEYS.TRANSACTIONS, list);
-        return updated;
+        result = updated;
+      } else {
+        result = {
+          ...tx,
+          id: tx.id,
+          createdAt: now,
+          updatedAt: now,
+        } as Transaction;
+        list.unshift(result);
+        setItem(KEYS.TRANSACTIONS, list);
       }
+    } else {
+      // Create new
+      const newTx: Transaction = {
+        ...tx,
+        id: 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+        createdAt: now,
+        updatedAt: now,
+      };
+      list.unshift(newTx);
+      setItem(KEYS.TRANSACTIONS, list);
+      result = newTx;
     }
 
-    // Create new
-    const newTx: Transaction = {
-      ...tx,
-      id: tx.id || 'tx-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-      createdAt: now,
-      updatedAt: now,
-    };
-    list.unshift(newTx);
-    setItem(KEYS.TRANSACTIONS, list);
-    return newTx;
+    FirestoreService.saveDocument('transactions', result.id, result);
+    return result;
   },
 
   deleteTransaction(id: string): void {
     const list = this.getTransactions().filter((tx) => tx.id !== id);
     setItem(KEYS.TRANSACTIONS, list);
+    FirestoreService.deleteDocument('transactions', id);
   },
 
   // --- CATEGORIES ---
@@ -180,27 +219,37 @@ export const StorageEngine = {
 
   saveCategory(cat: Omit<Category, 'id'> & { id?: string }): Category {
     const list = this.getCategories();
+    let result: Category;
+
     if (cat.id) {
       const index = list.findIndex((item) => item.id === cat.id);
       if (index !== -1) {
         list[index] = { ...list[index], ...cat };
         setItem(KEYS.CATEGORIES, list);
-        return list[index];
+        result = list[index];
+      } else {
+        result = { ...cat, id: cat.id, active: cat.active ?? true } as Category;
+        list.push(result);
+        setItem(KEYS.CATEGORIES, list);
       }
+    } else {
+      result = {
+        ...cat,
+        id: 'cat-' + Date.now(),
+        active: cat.active ?? true,
+      };
+      list.push(result);
+      setItem(KEYS.CATEGORIES, list);
     }
-    const newCat: Category = {
-      ...cat,
-      id: cat.id || 'cat-' + Date.now(),
-      active: cat.active ?? true,
-    };
-    list.push(newCat);
-    setItem(KEYS.CATEGORIES, list);
-    return newCat;
+
+    FirestoreService.saveDocument('categories', result.id, result);
+    return result;
   },
 
   deleteCategory(id: string): void {
     const list = this.getCategories().filter((cat) => cat.id !== id);
     setItem(KEYS.CATEGORIES, list);
+    FirestoreService.deleteDocument('categories', id);
   },
 
   // --- RECURRING EXPENSES ---
@@ -210,27 +259,37 @@ export const StorageEngine = {
 
   saveRecurringExpense(item: Omit<RecurringExpense, 'id' | 'createdAt'> & { id?: string }): RecurringExpense {
     const list = this.getRecurringExpenses();
+    let result: RecurringExpense;
+
     if (item.id) {
       const index = list.findIndex((r) => r.id === item.id);
       if (index !== -1) {
         list[index] = { ...list[index], ...item };
         setItem(KEYS.RECURRING, list);
-        return list[index];
+        result = list[index];
+      } else {
+        result = { ...item, id: item.id, createdAt: new Date().toISOString().split('T')[0] } as RecurringExpense;
+        list.push(result);
+        setItem(KEYS.RECURRING, list);
       }
+    } else {
+      result = {
+        ...item,
+        id: 'rec-' + Date.now(),
+        createdAt: new Date().toISOString().split('T')[0],
+      };
+      list.push(result);
+      setItem(KEYS.RECURRING, list);
     }
-    const newRec: RecurringExpense = {
-      ...item,
-      id: item.id || 'rec-' + Date.now(),
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    list.push(newRec);
-    setItem(KEYS.RECURRING, list);
-    return newRec;
+
+    FirestoreService.saveDocument('recurringExpenses', result.id, result);
+    return result;
   },
 
   deleteRecurringExpense(id: string): void {
     const list = this.getRecurringExpenses().filter((item) => item.id !== id);
     setItem(KEYS.RECURRING, list);
+    FirestoreService.deleteDocument('recurringExpenses', id);
   },
 
   // --- RECURRING PAYMENTS STATUS (Controle de Vencimentos) ---
@@ -282,6 +341,7 @@ export const StorageEngine = {
     }
 
     setItem(KEYS.RECURRING_PAYMENTS, payments);
+    FirestoreService.saveDocument('recurringPayments', paymentRecord.id, paymentRecord);
     return createdTx;
   },
 
@@ -293,19 +353,24 @@ export const StorageEngine = {
   saveMonthlyBudget(monthYear: string, overallAmount: number): MonthlyBudget {
     const list = this.getMonthlyBudgets();
     const index = list.findIndex((b) => b.monthYear === monthYear);
+    let result: MonthlyBudget;
+
     if (index !== -1) {
       list[index].overallAmount = overallAmount;
       setItem(KEYS.BUDGETS, list);
-      return list[index];
+      result = list[index];
+    } else {
+      result = {
+        id: 'mb-' + monthYear,
+        monthYear,
+        overallAmount,
+      };
+      list.push(result);
+      setItem(KEYS.BUDGETS, list);
     }
-    const newB: MonthlyBudget = {
-      id: 'mb-' + monthYear,
-      monthYear,
-      overallAmount,
-    };
-    list.push(newB);
-    setItem(KEYS.BUDGETS, list);
-    return newB;
+
+    FirestoreService.saveDocument('monthlyBudgets', result.id, result);
+    return result;
   },
 
   getCategoryBudgets(monthYear: string): CategoryBudget[] {
@@ -316,25 +381,31 @@ export const StorageEngine = {
   saveCategoryBudget(monthYear: string, categoryId: string, amount: number): CategoryBudget {
     const all = getItem<CategoryBudget[]>(KEYS.CATEGORY_BUDGETS, INITIAL_CATEGORY_BUDGETS);
     const index = all.findIndex((b) => b.monthYear === monthYear && b.categoryId === categoryId);
+    let result: CategoryBudget;
+
     if (index !== -1) {
       all[index].amount = amount;
       setItem(KEYS.CATEGORY_BUDGETS, all);
-      return all[index];
+      result = all[index];
+    } else {
+      result = {
+        id: 'cb-' + monthYear + '-' + categoryId,
+        monthYear,
+        categoryId,
+        amount,
+      };
+      all.push(result);
+      setItem(KEYS.CATEGORY_BUDGETS, all);
     }
-    const newCB: CategoryBudget = {
-      id: 'cb-' + monthYear + '-' + categoryId,
-      monthYear,
-      categoryId,
-      amount,
-    };
-    all.push(newCB);
-    setItem(KEYS.CATEGORY_BUDGETS, all);
-    return newCB;
+
+    FirestoreService.saveDocument('categoryBudgets', result.id, result);
+    return result;
   },
 
   deleteCategoryBudget(id: string): void {
     const all = getItem<CategoryBudget[]>(KEYS.CATEGORY_BUDGETS, INITIAL_CATEGORY_BUDGETS).filter((b) => b.id !== id);
     setItem(KEYS.CATEGORY_BUDGETS, all);
+    FirestoreService.deleteDocument('categoryBudgets', id);
   },
 
   // --- CREDIT CARDS & INSTALLMENTS ---
@@ -344,26 +415,36 @@ export const StorageEngine = {
 
   saveCreditCard(card: Omit<CreditCard, 'id'> & { id?: string }): CreditCard {
     const list = this.getCreditCards();
+    let result: CreditCard;
+
     if (card.id) {
       const idx = list.findIndex((c) => c.id === card.id);
       if (idx !== -1) {
         list[idx] = { ...list[idx], ...card };
         setItem(KEYS.CREDIT_CARDS, list);
-        return list[idx];
+        result = list[idx];
+      } else {
+        result = { ...card, id: card.id } as CreditCard;
+        list.push(result);
+        setItem(KEYS.CREDIT_CARDS, list);
       }
+    } else {
+      result = {
+        ...card,
+        id: 'card-' + Date.now(),
+      };
+      list.push(result);
+      setItem(KEYS.CREDIT_CARDS, list);
     }
-    const newC: CreditCard = {
-      ...card,
-      id: card.id || 'card-' + Date.now(),
-    };
-    list.push(newC);
-    setItem(KEYS.CREDIT_CARDS, list);
-    return newC;
+
+    FirestoreService.saveDocument('creditCards', result.id, result);
+    return result;
   },
 
   deleteCreditCard(id: string): void {
     const list = this.getCreditCards().filter((c) => c.id !== id);
     setItem(KEYS.CREDIT_CARDS, list);
+    FirestoreService.deleteDocument('creditCards', id);
   },
 
   getInstallmentPlans(): InstallmentPlan[] {
@@ -398,6 +479,7 @@ export const StorageEngine = {
     const allPlans = this.getInstallmentPlans();
     allPlans.push(plan);
     setItem(KEYS.INSTALLMENT_PLANS, allPlans);
+    FirestoreService.saveDocument('installmentPlans', plan.id, plan);
 
     // Auto-create transactions distributed across future months based on purchaseDate!
     const createdTxs: Transaction[] = [];

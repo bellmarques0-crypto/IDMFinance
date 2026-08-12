@@ -12,6 +12,7 @@ import {
   TransactionType,
 } from './types';
 import { StorageEngine } from './utils/storage';
+import { FirestoreService } from './services/firestoreService';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/Dashboard/DashboardView';
@@ -102,184 +103,80 @@ export default function App() {
   const reloadData = async () => {
     StorageEngine.init();
 
-    // Try fetching from SQLite database first
     try {
-      const res = await fetch('/api/db/data');
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('application/json')) {
-        const cloudData = await res.json();
-        const hasCloudData =
-          (cloudData.transactions && Array.isArray(cloudData.transactions) && cloudData.transactions.length > 0) ||
-          (cloudData.categories && Array.isArray(cloudData.categories) && cloudData.categories.length > 0);
+      // Fetch data directly from Cloud Firestore
+      const cloudData = await FirestoreService.fetchAllData();
+      const hasCloudData =
+        (cloudData.transactions && cloudData.transactions.length > 0) ||
+        (cloudData.categories && cloudData.categories.length > 0) ||
+        (cloudData.creditCards && cloudData.creditCards.length > 0);
 
-        if (hasCloudData) {
-          let mappedTxs: Transaction[] = [];
-          if (Array.isArray(cloudData.transactions)) {
-            mappedTxs = cloudData.transactions.map((t: any) => ({
-              id: t.id,
-              type: t.type,
-              date: typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0],
-              description: t.description,
-              categoryId: t.category_id || t.categoryId,
-              amount: Number(t.amount),
-              expenseType: t.expense_type || t.expenseType || 'variable',
-              paymentMethod: t.payment_method || t.paymentMethod || 'outros',
-              creditCardId: t.credit_card_id || t.creditCardId,
-              notes: t.notes,
-              recurrence: t.recurrence || 'none',
-              installmentPlanId: t.installment_plan_id || t.installmentPlanId,
-              currentInstallment: t.current_installment || t.currentInstallment,
-              totalInstallments: t.total_installments || t.totalInstallments,
-              createdAt: t.created_at || t.createdAt,
-              updatedAt: t.updated_at || t.updatedAt,
-            }));
-            setTransactions(mappedTxs);
-          }
+      if (hasCloudData) {
+        setCategories(cloudData.categories.length > 0 ? cloudData.categories : StorageEngine.getCategories());
+        setTransactions(cloudData.transactions || []);
+        setRecurringExpenses(cloudData.recurring || []);
+        setCreditCards(cloudData.creditCards || []);
+        setInstallmentPlans(cloudData.installmentPlans || []);
+        setMonthlyBudgets(cloudData.monthlyBudgets || []);
+        setCategoryBudgets(cloudData.categoryBudgets || []);
+        setRecurringPayments(cloudData.recurringPayments || []);
 
-          let mappedCats: Category[] = [];
-          if (Array.isArray(cloudData.categories) && cloudData.categories.length > 0) {
-            mappedCats = cloudData.categories.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              type: c.type,
-              group: c.group_name || c.group,
-              isDefault: c.is_default ?? c.isDefault,
-              active: c.active !== false,
-            }));
-            setCategories(mappedCats);
-          } else {
-            mappedCats = StorageEngine.getCategories();
-            setCategories(mappedCats);
-          }
+        StorageEngine.setAllData({
+          transactions: cloudData.transactions,
+          categories: cloudData.categories,
+          creditCards: cloudData.creditCards,
+          recurring: cloudData.recurring,
+          installmentPlans: cloudData.installmentPlans,
+          monthlyBudgets: cloudData.monthlyBudgets,
+          categoryBudgets: cloudData.categoryBudgets,
+        });
 
-          let mappedCards: CreditCard[] = [];
-          if (Array.isArray(cloudData.creditCards) && cloudData.creditCards.length > 0) {
-            mappedCards = cloudData.creditCards.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              closingDay: Number(c.closing_day || c.closingDay),
-              dueDay: Number(c.due_day || c.dueDay),
-              limitAmount: Number(c.limit_amount || c.limitAmount || 0),
-            }));
-            setCreditCards(mappedCards);
-          } else {
-            mappedCards = StorageEngine.getCreditCards();
-            setCreditCards(mappedCards);
-          }
+        syncWithSqlite(cloudData);
+        return;
+      } else {
+        // First run on Cloud Firestore: push initial state to Cloud Firestore
+        const localCats = StorageEngine.getCategories();
+        const localTxs = StorageEngine.getTransactions();
+        const localRec = StorageEngine.getRecurringExpenses();
+        const localCards = StorageEngine.getCreditCards();
+        const localPlans = StorageEngine.getInstallmentPlans();
+        const localMB = StorageEngine.getMonthlyBudgets();
+        const localCB = StorageEngine.getCategoryBudgets(selectedMonthYear);
+        const localPay = StorageEngine.getRecurringPayments();
 
-          let mappedRec: RecurringExpense[] = [];
-          if (Array.isArray(cloudData.recurring) && cloudData.recurring.length > 0) {
-            mappedRec = cloudData.recurring.map((r: any) => ({
-              id: r.id,
-              description: r.description,
-              categoryId: r.category_id || r.categoryId,
-              amount: Number(r.amount),
-              dueDay: Number(r.due_day || r.dueDay),
-              frequency: r.frequency || 'monthly',
-              paymentMethod: r.payment_method || r.paymentMethod,
-              expenseType: r.expense_type || r.expenseType || 'fixed',
-              active: r.active !== false,
-              createdAt: r.created_at || r.createdAt,
-            }));
-            setRecurringExpenses(mappedRec);
-          } else {
-            mappedRec = StorageEngine.getRecurringExpenses();
-            setRecurringExpenses(mappedRec);
-          }
+        setCategories(localCats);
+        setTransactions(localTxs);
+        setRecurringExpenses(localRec);
+        setCreditCards(localCards);
+        setInstallmentPlans(localPlans);
+        setMonthlyBudgets(localMB);
+        setCategoryBudgets(localCB);
+        setRecurringPayments(localPay);
 
-          let mappedPlans: InstallmentPlan[] = [];
-          if (Array.isArray(cloudData.installmentPlans) && cloudData.installmentPlans.length > 0) {
-            mappedPlans = cloudData.installmentPlans.map((p: any) => ({
-              id: p.id,
-              description: p.description,
-              creditCardId: p.credit_card_id || p.creditCardId,
-              categoryId: p.category_id || p.categoryId,
-              purchaseDate: p.purchase_date || p.purchaseDate,
-              totalAmount: Number(p.total_amount || p.totalAmount),
-              installments: Number(p.installments),
-              installmentAmount: Number(p.installment_amount || p.installmentAmount),
-              expenseType: p.expense_type || p.expenseType || 'variable',
-              createdAt: p.created_at || p.createdAt,
-            }));
-            setInstallmentPlans(mappedPlans);
-          } else {
-            mappedPlans = StorageEngine.getInstallmentPlans();
-            setInstallmentPlans(mappedPlans);
-          }
+        await FirestoreService.syncAllData({
+          categories: localCats,
+          transactions: localTxs,
+          recurring: localRec,
+          creditCards: localCards,
+          installmentPlans: localPlans,
+          monthlyBudgets: localMB,
+          categoryBudgets: localCB,
+          recurringPayments: localPay,
+        });
 
-          let mappedMB: MonthlyBudget[] = [];
-          if (Array.isArray(cloudData.monthlyBudgets) && cloudData.monthlyBudgets.length > 0) {
-            mappedMB = cloudData.monthlyBudgets.map((m: any) => ({
-              id: m.id,
-              monthYear: m.month_year || m.monthYear,
-              overallAmount: Number(m.overall_amount || m.overallAmount),
-            }));
-            setMonthlyBudgets(mappedMB);
-          } else {
-            mappedMB = StorageEngine.getMonthlyBudgets();
-            setMonthlyBudgets(mappedMB);
-          }
-
-          let mappedCB: CategoryBudget[] = [];
-          if (Array.isArray(cloudData.categoryBudgets) && cloudData.categoryBudgets.length > 0) {
-            mappedCB = cloudData.categoryBudgets.map((cb: any) => ({
-              id: cb.id,
-              monthYear: cb.month_year || cb.monthYear,
-              categoryId: cb.category_id || cb.categoryId,
-              amount: Number(cb.amount),
-            }));
-            setCategoryBudgets(mappedCB);
-          } else {
-            mappedCB = StorageEngine.getCategoryBudgets(selectedMonthYear);
-            setCategoryBudgets(mappedCB);
-          }
-
-          setRecurringPayments(StorageEngine.getRecurringPayments());
-
-          // Keep LocalStorage in sync with server state
-          StorageEngine.setAllData({
-            transactions: mappedTxs,
-            categories: mappedCats,
-            creditCards: mappedCards,
-            recurring: mappedRec,
-            installmentPlans: mappedPlans,
-            monthlyBudgets: mappedMB,
-            categoryBudgets: mappedCB,
-          });
-          return;
-        } else {
-          // Cloud database is empty, seed it with sample data
-          const localCats = StorageEngine.getCategories();
-          const localTxs = StorageEngine.getTransactions();
-          const localRec = StorageEngine.getRecurringExpenses();
-          const localCards = StorageEngine.getCreditCards();
-          const localPlans = StorageEngine.getInstallmentPlans();
-          const localMB = StorageEngine.getMonthlyBudgets();
-          const localCB = StorageEngine.getCategoryBudgets(selectedMonthYear);
-
-          setCategories(localCats);
-          setTransactions(localTxs);
-          setRecurringExpenses(localRec);
-          setCreditCards(localCards);
-          setInstallmentPlans(localPlans);
-          setMonthlyBudgets(localMB);
-          setCategoryBudgets(localCB);
-          setRecurringPayments(StorageEngine.getRecurringPayments());
-
-          syncWithSqlite({
-            categories: localCats,
-            transactions: localTxs,
-            recurring: localRec,
-            creditCards: localCards,
-            installmentPlans: localPlans,
-            monthlyBudgets: localMB,
-            categoryBudgets: localCB,
-          });
-          return;
-        }
+        syncWithSqlite({
+          categories: localCats,
+          transactions: localTxs,
+          recurring: localRec,
+          creditCards: localCards,
+          installmentPlans: localPlans,
+          monthlyBudgets: localMB,
+          categoryBudgets: localCB,
+        });
+        return;
       }
     } catch (err) {
-      console.warn('Fetch from SQLite database skipped/failed:', err);
+      console.warn('Fetch from Cloud Firestore skipped/failed:', err);
     }
 
     // Fallback to initial local engine state

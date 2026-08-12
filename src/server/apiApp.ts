@@ -3,7 +3,7 @@ dotenv.config();
 
 import express, { Router } from 'express';
 import cors from 'cors';
-import { getSqliteDb, initSqliteTables, checkSqliteConnection } from '../db/sqliteService';
+import { getSqliteDb, initSqliteTables, checkSqliteConnection, resetSqliteDb } from '../db/sqliteService';
 
 export function createApiApp() {
   const app = express();
@@ -163,6 +163,9 @@ export function createApiApp() {
       });
     } catch (err: any) {
       console.error('Error fetching data from SQLite:', err);
+      if (String(err?.message || err).includes('SQLITE_CORRUPT') || String(err?.message || err).includes('malformed')) {
+        resetSqliteDb();
+      }
       res.status(500).json({ error: err.message || 'Erro ao buscar dados do SQLite' });
     }
   });
@@ -432,6 +435,9 @@ export function createApiApp() {
       res.json({ success: true, message: 'Dados sincronizados com o SQLite com sucesso!' });
     } catch (err: any) {
       console.error('Error syncing data to SQLite:', err);
+      if (String(err?.message || err).includes('SQLITE_CORRUPT') || String(err?.message || err).includes('malformed')) {
+        resetSqliteDb();
+      }
       res.status(500).json({ error: err.message || 'Erro ao sincronizar dados com o SQLite' });
     }
   });

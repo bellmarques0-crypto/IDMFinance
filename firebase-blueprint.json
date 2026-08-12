@@ -1,0 +1,106 @@
+{
+  "entities": {
+    "Transaction": {
+      "collection": "transactions",
+      "fields": {
+        "id": "string",
+        "type": "string",
+        "date": "string",
+        "description": "string",
+        "categoryId": "string",
+        "amount": "number",
+        "expenseType": "string",
+        "paymentMethod": "string",
+        "creditCardId": "string",
+        "notes": "string",
+        "recurrence": "string",
+        "installmentPlanId": "string",
+        "installmentNumber": "number",
+        "totalInstallments": "number",
+        "createdAt": "string",
+        "updatedAt": "string"
+      }
+    },
+    "Category": {
+      "collection": "categories",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "type": "string",
+        "group": "string",
+        "isDefault": "boolean",
+        "active": "boolean"
+      }
+    },
+    "RecurringExpense": {
+      "collection": "recurringExpenses",
+      "fields": {
+        "id": "string",
+        "description": "string",
+        "amount": "number",
+        "categoryId": "string",
+        "dueDay": "number",
+        "expenseType": "string",
+        "paymentMethod": "string",
+        "notes": "string",
+        "active": "boolean",
+        "createdAt": "string"
+      }
+    },
+    "CreditCard": {
+      "collection": "creditCards",
+      "fields": {
+        "id": "string",
+        "name": "string",
+        "limit": "number",
+        "closingDay": "number",
+        "dueDay": "number",
+        "color": "string"
+      }
+    },
+    "InstallmentPlan": {
+      "collection": "installmentPlans",
+      "fields": {
+        "id": "string",
+        "description": "string",
+        "creditCardId": "string",
+        "categoryId": "string",
+        "purchaseDate": "string",
+        "totalAmount": "number",
+        "installments": "number",
+        "installmentAmount": "number",
+        "expenseType": "string",
+        "createdAt": "string"
+      }
+    },
+    "MonthlyBudget": {
+      "collection": "monthlyBudgets",
+      "fields": {
+        "id": "string",
+        "monthYear": "string",
+        "overallAmount": "number"
+      }
+    },
+    "CategoryBudget": {
+      "collection": "categoryBudgets",
+      "fields": {
+        "id": "string",
+        "monthYear": "string",
+        "categoryId": "string",
+        "amount": "number"
+      }
+    },
+    "RecurringExpensePayment": {
+      "collection": "recurringPayments",
+      "fields": {
+        "id": "string",
+        "recurringExpenseId": "string",
+        "monthYear": "string",
+        "status": "string",
+        "paidDate": "string",
+        "transactionId": "string",
+        "amountPaid": "number"
+      }
+    }
+  }
+}

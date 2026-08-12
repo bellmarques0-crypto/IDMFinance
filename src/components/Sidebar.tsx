@@ -126,7 +126,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
           <div className="text-center text-[#d1ebd1]">
             <p className="font-semibold text-[#f0f9ef]">Sistema Financeiro BRL</p>
-            <p className="text-[10px] mt-0.5 text-[#b1dea9]/90">Banco de Dados SQLite Conectado</p>
+            <p className="text-[10px] mt-0.5 text-[#b1dea9]/90 flex items-center justify-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Banco na Nuvem (Firebase Cloud Firestore)
+            </p>
           </div>
         </div>
       </aside>
